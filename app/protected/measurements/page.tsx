@@ -258,16 +258,18 @@ function MeasurementsPageContent() {
             {/* Search and Filter Controls */}
             <div className="rounded-md border border-transparent bg-white/5 backdrop-blur-xl overflow-hidden">
               <div className="p-1.5 border-b border-transparent">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <div className="relative">
+                {/* Mobile: Stack vertically */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  {/* Search and filter buttons */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="relative flex-1 sm:flex-initial">
                       <Search className="absolute left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-white/40" />
                       <input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search metrics"
-                        className="w-32 rounded border border-white/20 bg-white/10 py-1 pl-5 pr-2 text-[11px] font-light text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none backdrop-blur-xl"
+                        className="w-full sm:w-32 md:w-40 rounded border border-white/20 bg-white/10 py-1 pl-5 pr-2 text-[11px] font-light text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none backdrop-blur-xl"
                       />
                     </div>
                     {hasActiveFilters && (
@@ -298,14 +300,16 @@ function MeasurementsPageContent() {
                       onClick={() => toggleSort('name')}
                       className="flex items-center gap-0.5 rounded border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-light text-white/80 hover:bg-white/20 transition-colors"
                     >
-                      Name
+                      <span className="hidden xs:inline">Name</span>
+                      <span className="xs:hidden">A-Z</span>
                       <SortIcon field="name" />
                     </button>
                     <button
                       onClick={() => toggleSort('date')}
                       className="flex items-center gap-0.5 rounded border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-light text-white/80 hover:bg-white/20 transition-colors"
                     >
-                      Date
+                      <span className="hidden xs:inline">Date</span>
+                      <span className="xs:hidden">📅</span>
                       <SortIcon field="date" />
                     </button>
                   </div>
