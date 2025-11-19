@@ -172,10 +172,10 @@ export const cacheHelper = {
  * Cache key generators for consistency
  */
 export const cacheKeys = {
-  measurementsSummary: (userId: string) => `measurements:summary:${userId}`,
-  measurementsDetail: (userId: string, metric: string) => `measurements:detail:${userId}:${metric}`,
-  metricsCatalog: () => `metrics:catalog`,
-  userMeasurements: (userId: string) => `measurements:user:${userId}:*`,
+  measurementsSummary: (userId: string) => `measurements:summary:v2:${userId}`,
+  measurementsDetail: (userId: string, metric: string) => `measurements:detail:v2:${userId}:${metric}`,
+  metricsCatalog: () => `metrics:catalog:v2`,
+  userMeasurements: (userId: string) => `measurements:user:v2:${userId}:*`,
 };
 
 /**

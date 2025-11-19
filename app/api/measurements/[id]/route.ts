@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { cacheHelper, cacheKeys } from '@/lib/cache';
+import { measurementLimiter } from '@/lib/rate-limiter';
+import type { ApiError, MeasurementResponse } from '@/types/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,26 +21,6 @@ const updateMeasurementSchema = z.object({
   notes: z.string().max(500, 'Notes too long').optional().nullable()
 });
 
-// Simple in-memory rate limiter (use Redis in production)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-function checkRateLimit(userId: string, maxRequests: number = 10, windowMs: number = 60000): boolean {
-  const now = Date.now();
-  const userLimit = rateLimitMap.get(userId);
-
-  if (!userLimit || now > userLimit.resetAt) {
-    rateLimitMap.set(userId, { count: 1, resetAt: now + windowMs });
-    return true;
-  }
-
-  if (userLimit.count >= maxRequests) {
-    return false;
-  }
-
-  userLimit.count++;
-  return true;
-}
-
 // UPDATE measurement
 export async function PATCH(
   request: NextRequest,
@@ -49,14 +31,26 @@ export async function PATCH(
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' } satisfies ApiError, { status: 401 });
     }
 
     // Rate limiting
-    if (!checkRateLimit(user.id, 20, 60000)) {
+    const rateLimitResult = await measurementLimiter.checkLimit('update', user.id);
+    if (!rateLimitResult.allowed) {
       return NextResponse.json(
-        { error: 'Too many requests. Please try again later.' },
-        { status: 429 }
+        {
+          error: 'Too many requests. Please try again later.',
+          resetAt: rateLimitResult.resetAt,
+          remaining: rateLimitResult.remaining
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': rateLimitResult.remaining?.toString() || '0',
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toString() || '',
+            'Retry-After': Math.ceil(((rateLimitResult.resetAt || 0) - Date.now()) / 1000).toString()
+          }
+        }
       );
     }
 
@@ -165,10 +159,22 @@ export async function DELETE(
     }
 
     // Rate limiting
-    if (!checkRateLimit(user.id, 20, 60000)) {
+    const rateLimitResult = await measurementLimiter.checkLimit('delete', user.id);
+    if (!rateLimitResult.allowed) {
       return NextResponse.json(
-        { error: 'Too many requests. Please try again later.' },
-        { status: 429 }
+        {
+          error: 'Too many requests. Please try again later.',
+          resetAt: rateLimitResult.resetAt,
+          remaining: rateLimitResult.remaining
+        },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Remaining': rateLimitResult.remaining?.toString() || '0',
+            'X-RateLimit-Reset': rateLimitResult.resetAt?.toString() || '',
+            'Retry-After': Math.ceil(((rateLimitResult.resetAt || 0) - Date.now()) / 1000).toString()
+          }
+        }
       );
     }
 

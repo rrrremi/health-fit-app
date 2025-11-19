@@ -217,7 +217,7 @@ function SortableExerciseItem({
                 e.stopPropagation()
                 onDeleteClick(index)
               }}
-              className={`p-1 rounded-md hover:bg-red-500/20 text-red-400 transition-colors ${
+              className={`p-1 rounded-md hover:bg-destructive/20 text-destructive transition-colors ${
                 selectedExerciseIndex === index ? 'pointer-events-auto' : 'pointer-events-none'
               }`}
             >
@@ -1325,7 +1325,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
             </Link>
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="rounded-lg border border-red-500/50 bg-red-500/10 p-1.5 text-red-400 hover:bg-red-500/20 transition-colors"
+              className="rounded-lg border border-destructive/50 bg-destructive/10 p-1.5 text-destructive hover:bg-destructive/20 transition-colors"
               aria-label="Delete workout"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -1357,7 +1357,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
                         maxLength={50}
                       />
                       {nameError && (
-                        <div className="text-[10px] text-red-400 mt-0.5">{nameError}</div>
+                        <div className="text-[10px] text-destructive mt-0.5">{nameError}</div>
                       )}
                     </div>
                   ) : (
@@ -1380,7 +1380,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
               </div>
 
               {error && (
-                <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-300 backdrop-blur-xl">
+                <div className="mt-2 rounded-lg border border-destructive/20 bg-destructive/10 p-2 text-xs text-destructive backdrop-blur-xl">
                   {error}
                 </div>
               )}
@@ -1445,7 +1445,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
                             : 'No target date set'}
                         </div>
                         {targetDateError && (
-                          <div className="text-[10px] text-red-400">{targetDateError}</div>
+                          <div className="text-[10px] text-destructive">{targetDateError}</div>
                         )}
                       </div>
                       <div className="flex flex-1 flex-col gap-1 rounded-md border border-transparent bg-white/5 p-2">
@@ -1490,7 +1490,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
                               })}
                             </div>
                             {focusError && (
-                              <div className="text-[10px] text-red-400">{focusError}</div>
+                              <div className="text-[10px] text-destructive">{focusError}</div>
                             )}
                             <div className="flex items-center gap-2">
                               <button
@@ -1802,7 +1802,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
                               setEditingSetDetails(prev => prev.filter((_, i) => i !== idx).map((s, i) => ({ ...s, set_number: i + 1 })))
                               setPendingSetCount(prev => prev - 1)
                             }}
-                            className="p-1 rounded hover:bg-red-500/20 text-red-400/60 hover:text-red-300 transition-colors"
+                            className="p-1 rounded hover:bg-destructive/20 text-destructive/60 hover:text-destructive transition-colors"
                             title="Remove set"
                           >
                             <X className="h-3 w-3" />
@@ -1838,7 +1838,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
                 </div>
 
                 {setDetailsError && (
-                  <div role="alert" aria-live="assertive" className="mx-5 mb-4 rounded-xl bg-red-500/10 backdrop-blur-xl p-3 text-xs text-red-300">
+                  <div role="alert" aria-live="assertive" className="mx-5 mb-4 rounded-xl bg-destructive/10 backdrop-blur-xl p-3 text-xs text-destructive">
                     {setDetailsError}
                   </div>
                 )}

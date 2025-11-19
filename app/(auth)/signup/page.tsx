@@ -3,10 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { toast } from 'sonner';
 import Button from '@/components/ui/Button';
 
 export default function Signup() {
-  const router = useRouter();
+  const { signUp, loading: authLoading } = useAuth()
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -37,23 +39,24 @@ export default function Signup() {
     }
     
     try {
-      // In a real app, this would be an actual registration API call
-      // For demo purposes, we'll simulate a successful signup
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Store auth state in localStorage (in a real app, use secure cookies or tokens)
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('user', JSON.stringify({
+      const { error } = await signUp(formData.email, formData.password, {
         name: formData.name,
-        email: formData.email,
-        role: 'user'
-      }));
-      
-      // Redirect to protected area
-      router.push('/protected');
-    } catch (err) {
-      console.error('Signup error:', err);
+        email: formData.email
+      });
+
+      if (error) {
+        setError(error.message);
+        toast.error('Signup failed', { description: error.message });
+      } else {
+        toast.success('Account created!', {
+          description: 'Please check your email to confirm your account.'
+        });
+        // AuthProvider will handle the redirect automatically after email confirmation
+      }
+    } catch (err: any) {
       setError('Failed to create account. Please try again.');
+      toast.error('Signup failed', { description: 'Please try again.' });
+      console.error('Signup error:', err);
     } finally {
       setLoading(false);
     }
@@ -70,7 +73,7 @@ export default function Signup() {
         </div>
         
         {error && (
-          <div className="p-2 rounded-md bg-red-500/10 border border-red-500/20 text-red-200 text-xs font-light">
+          <div className="p-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-xs font-light">
             {error}
           </div>
         )}

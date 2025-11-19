@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import type { MetricDetailResponse } from '@/types/measurements';
+import type { MetricDetailResponse, MeasurementPublic } from '@/types/measurements';
 
 /**
  * Manages measurement mutations (update, delete) with optimistic updates
@@ -182,9 +182,132 @@ export function useMeasurementMutations(metric: string) {
     }
   };
   
+  /**
+   * Creates a new measurement with optimistic UI update
+   */
+  const createMeasurement = async (data: { value: number; measured_at: string; unit: string }) => {
+    const previousDetailData = queryClient.getQueryData<MetricDetailResponse>([
+      'measurements',
+      'detail',
+      metric,
+    ]);
+    const previousSummaryData = queryClient.getQueryData(['measurements', 'summary']);
+
+    // Create optimistic measurement object
+    const optimisticMeasurement: MeasurementPublic = {
+      id: `temp-${Date.now()}`,
+      metric,
+      value: data.value,
+      unit: data.unit,
+      measured_at: data.measured_at,
+      source: 'manual',
+      confidence: 0.95,
+      notes: null,
+      image_url: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      delta_abs: null,
+      delta_pct: null,
+      trend_direction: undefined,
+    };
+
+    try {
+      // Optimistic update - add measurement to UI immediately
+      queryClient.setQueryData<MetricDetailResponse>(
+        ['measurements', 'detail', metric],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old, // Preserve all existing fields including healthy_range
+            measurements: [...old.measurements, optimisticMeasurement],
+          };
+        }
+      );
+
+      // Optimistic update for summary - update latest value if this is newer
+      queryClient.setQueryData(['measurements', 'summary'], (old: any) => {
+        if (!old?.metrics) return old;
+
+        const metricSummary = old.metrics.find((m: any) => m.metric === metric);
+        if (!metricSummary) return old;
+
+        const measurementDate = new Date(data.measured_at);
+        const currentLatestDate = new Date(metricSummary.latest_date);
+
+        // Only update if this measurement is newer
+        if (measurementDate > currentLatestDate) {
+          return {
+            ...old,
+            metrics: old.metrics.map((m: any) =>
+              m.metric === metric
+                ? {
+                    ...m, // Preserve all existing fields including healthy ranges
+                    latest_value: data.value,
+                    latest_date: data.measured_at,
+                    point_count: m.point_count + 1,
+                  }
+                : m
+            ),
+          };
+        }
+
+        // Just increment count if not the latest
+        return {
+          ...old,
+          metrics: old.metrics.map((m: any) =>
+            m.metric === metric
+              ? { ...m, point_count: m.point_count + 1 } // Preserve all existing fields
+              : m
+          ),
+        };
+      });
+
+      // Make API call in background
+      const payload = {
+        metric,
+        value: data.value,
+        unit: data.unit,
+        measured_at: data.measured_at,
+        source: 'manual',
+        confidence: 0.95,
+      };
+
+      const response = await fetch('/api/measurements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to create measurement');
+      }
+
+      // Refetch to ensure data consistency and replace temp data
+      await queryClient.invalidateQueries({ queryKey: ['measurements', 'detail', metric] });
+      await queryClient.invalidateQueries({ queryKey: ['measurements', 'summary'] });
+
+      toast.success('Measurement added successfully');
+    } catch (error) {
+      console.error('Create error:', error);
+
+      // Rollback optimistic update on error
+      if (previousDetailData) {
+        queryClient.setQueryData(['measurements', 'detail', metric], previousDetailData);
+      }
+      if (previousSummaryData) {
+        queryClient.setQueryData(['measurements', 'summary'], previousSummaryData);
+      }
+
+      toast.error('Failed to add measurement');
+      throw error;
+    }
+  };
+  
   return {
     updateMeasurement,
     deleteMeasurement,
+    createMeasurement,
     deleting,
   };
 }

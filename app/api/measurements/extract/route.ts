@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import OpenAI from 'openai';
+import { processAndDeduplicateMeasurements } from '@/lib/metric-normalization';
+import { getOpenAIClient } from '@/lib/openai-client';
 
 export const dynamic = 'force-dynamic';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const openai = getOpenAIClient()
 
 const EXTRACTION_PROMPT = `
 You are a medical data extraction assistant. Analyze this InBody/body composition report image and extract ALL visible measurements including segmental data.
@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
         temperature: 0.1
       });
 
-      return await processOpenAIResponse(response);
+      return await processOpenAIResponse(response, user.id, supabase);
 
     } catch (fetchError: any) {
       console.error('Error fetching image:', fetchError);
@@ -162,7 +162,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function processOpenAIResponse(response: any) {
+async function processOpenAIResponse(response: any, userId: string, supabase: any) {
   try {
 
     const content = response.choices[0]?.message?.content;
@@ -208,16 +208,24 @@ async function processOpenAIResponse(response: any) {
       throw new Error('Unexpected response format from AI');
     }
 
-    // Validate and normalize measurements
-    const validatedMeasurements = measurements
-      .filter(m => m.metric && typeof m.value === 'number')
-      .map(m => ({
-        metric: m.metric.toLowerCase().trim(),
-        value: parseFloat(m.value.toString()),
-        unit: (m.unit || '').trim() || 'level', // Default to 'level' if empty
-        raw_text: m.raw_text || '',
-        confidence: m.confidence || 0.9
-      }));
+    // Validate and normalize measurements with deduplication
+    const { processed: validatedMeasurements, duplicates, warnings } = await processAndDeduplicateMeasurements(
+      userId,
+      measurements,
+      supabase
+    );
+
+    // Log warnings if any
+    if (warnings.length > 0) {
+      console.log('Normalization warnings:', warnings);
+    }
+
+    if (duplicates.length > 0) {
+      console.log(`Found ${duplicates.length} potential duplicates with existing measurements`);
+      duplicates.forEach(dup => {
+        console.log(`  ${dup.confidence.toUpperCase()}: "${dup.extracted.metric}" (${dup.extracted.value} ${dup.extracted.unit}) ↔ "${dup.existing.display_name}" (${dup.existing.latest_value} ${dup.existing.unit}) - ${Math.round(dup.similarity * 100)}% similar`);
+      });
+    }
 
     if (validatedMeasurements.length === 0) {
       return NextResponse.json(
@@ -229,7 +237,9 @@ async function processOpenAIResponse(response: any) {
     return NextResponse.json({
       success: true,
       measurements: validatedMeasurements,
-      count: validatedMeasurements.length
+      count: validatedMeasurements.length,
+      duplicates: duplicates.length > 0 ? duplicates : undefined,
+      warnings: warnings.length > 0 ? warnings : undefined
     });
 
   } catch (error: any) {

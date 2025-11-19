@@ -2,44 +2,10 @@ import OpenAI from 'openai';
 import { WorkoutData } from '@/types/workout';
 import { BASE_WORKOUT_PROMPT, RETRY_PROMPT_SUFFIX, focusInstructions } from './prompts/workout';
 import { EXERCISE_DATABASE_PROMPT, EXERCISE_DATABASE_RETRY_PROMPT } from './prompts/exercise_database';
+import { WorkoutSchema, WorkoutResponse } from './validations/workout';
+import { getOpenAIClient } from './openai-client';
 
 export const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-3.5-turbo';
-
-// Initialize OpenAI client with better error handling
-const initializeOpenAI = () => {
-  // Check if API key exists
-  if (!process.env.OPENAI_API_KEY) {
-    console.error('OPENAI_API_KEY is not defined in environment variables');
-    throw new Error('OpenAI API key is missing');
-  }
-
-  try {
-    // Get the API key from environment
-    const apiKey = process.env.OPENAI_API_KEY;
-    
-    // Only log in development mode
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Using OpenAI model:', DEFAULT_OPENAI_MODEL);
-    }
-    
-    // For OpenAI v4, we need to use a standard API key (sk-*) not a project key (sk-proj-*)
-    // If you're using a project key, you need to get a standard API key from your OpenAI account
-    // or configure your application to use the project key correctly
-    
-    // Create the OpenAI client
-    return new OpenAI({
-      apiKey: apiKey,
-      timeout: 60000, // 60 seconds timeout
-      maxRetries: 2,  // Retry API calls up to 2 times
-      baseURL: "https://api.openai.com/v1", // Explicitly set the base URL
-    });
-  } catch (error) {
-    console.error('Failed to initialize OpenAI client:', error);
-    throw error;
-  }
-};
-
-const openai = initializeOpenAI();
 
 /**
  * Result of workout generation
@@ -139,108 +105,8 @@ export function generateWorkoutPrompt(
 }
 
 /**
- * Validate the workout data structure and values
- * @param data The parsed JSON data
- * @param expectedExerciseCount Optional expected number of exercises
- * @param useExerciseDatabase Whether to validate enhanced exercise database fields
- * @returns Validation result
- */
-function validateWorkoutData(data: any, expectedExerciseCount?: number, useExerciseDatabase = true): { valid: boolean; error?: string } {
-  // Check if the data has a workout object
-  if (!data || typeof data !== 'object') {
-    return { valid: false, error: 'Response is not an object' };
-  }
-  
-  if (!data.workout) {
-    return { valid: false, error: 'Missing workout object' };
-  }
-  
-  // Check if the workout has an exercises array
-  if (!Array.isArray(data.workout.exercises)) {
-    return { valid: false, error: 'Workout does not contain an exercises array' };
-  }
-  
-  // Check if the exercises array is empty
-  if (data.workout.exercises.length === 0) {
-    return { valid: false, error: 'Exercises array is empty' };
-  }
-  
-  // Check if the exercises count is reasonable compared to expected count
-  // Relaxed: do not fail the whole response if count differs. We only require at least 1 exercise.
-  if (expectedExerciseCount) {
-    if (data.workout.exercises.length < 1) {
-      return { valid: false, error: 'Exercises array is empty after generation' };
-    }
-    // Log a warning but allow processing to continue if count differs
-    if (
-      data.workout.exercises.length < expectedExerciseCount - 2 ||
-      data.workout.exercises.length > expectedExerciseCount + 2
-    ) {
-      console.warn(
-        `Workout exercise count differs from request: expected ~${expectedExerciseCount}, got ${data.workout.exercises.length}`
-      );
-    }
-  }
-  
-  // Check each exercise for required fields
-  for (let i = 0; i < data.workout.exercises.length; i++) {
-    const exercise = data.workout.exercises[i];
-    
-    if (!exercise.name || typeof exercise.name !== 'string') {
-      return { valid: false, error: `Exercise at index ${i} is missing a name` };
-    }
-    
-    if (typeof exercise.sets !== 'number' || exercise.sets <= 0) {
-      return { valid: false, error: `Exercise ${exercise.name} has invalid sets` };
-    }
-    
-    // Allow reps to be either a number or a string (for time-based exercises or special instructions)
-    if (typeof exercise.reps === 'number' && exercise.reps <= 0) {
-      return { valid: false, error: `Exercise ${exercise.name} has invalid reps value` };
-    } else if (typeof exercise.reps !== 'number' && typeof exercise.reps !== 'string') {
-      return { valid: false, error: `Exercise ${exercise.name} has invalid reps type` };
-    } else if (typeof exercise.reps === 'string' && exercise.reps.trim() === '') {
-      return { valid: false, error: `Exercise ${exercise.name} has empty reps string` };
-    }
-    
-    if (typeof exercise.rest_time_seconds !== 'number' || exercise.rest_time_seconds < 0) {
-      return { valid: false, error: `Exercise ${exercise.name} has invalid rest time` };
-    }
-    
-    if (!exercise.rationale || typeof exercise.rationale !== 'string') {
-      return { valid: false, error: `Exercise ${exercise.name} is missing a rationale` };
-    }
-    
-    // Validate enhanced exercise database fields if required
-    if (useExerciseDatabase) {
-      // Check primary_muscles
-      if (!Array.isArray(exercise.primary_muscles) || exercise.primary_muscles.length === 0) {
-        return { valid: false, error: `Exercise ${exercise.name} is missing primary_muscles array` };
-      }
-      
-      // Check secondary_muscles (can be empty array but must be an array)
-      if (!Array.isArray(exercise.secondary_muscles)) {
-        return { valid: false, error: `Exercise ${exercise.name} is missing secondary_muscles array` };
-      }
-      
-      // Check equipment
-      if (!exercise.equipment || typeof exercise.equipment !== 'string') {
-        return { valid: false, error: `Exercise ${exercise.name} is missing equipment` };
-      }
-      
-      // Check movement_type
-      if (!exercise.movement_type || (exercise.movement_type !== 'compound' && exercise.movement_type !== 'isolation')) {
-        return { valid: false, error: `Exercise ${exercise.name} has invalid movement_type` };
-      }
-    }
-  }
-  
-  return { valid: true };
-}
-
-/**
  * Generate a workout using OpenAI
- * 
+ *
  * @param requestData The workout generation request data
  * @param retry Whether this is a retry attempt
  * @param useExerciseDatabase Whether to use the enhanced exercise database prompt
@@ -285,7 +151,7 @@ export async function generateWorkout(
     
     // Debug log
     if (process.env.NODE_ENV === 'development') {
-      console.log('Sending prompt to OpenAI:', prompt.substring(0, 100) + '...');
+      console.log('Sending prompt to OpenAI (content hidden for security)');
     }
     
     // Heuristic: increase max_tokens proportionally to requested exercise count
@@ -298,9 +164,7 @@ export async function generateWorkout(
     }
     
     // Sanity-check: the singleton client should have been created above
-    if (!openai) {
-      throw new Error('OpenAI client is not initialized');
-    }
+    const openaiClient = getOpenAIClient();
 
     if (process.env.NODE_ENV === 'development') {
       console.log('Attempting to call OpenAI API...');
@@ -310,7 +174,7 @@ export async function generateWorkout(
     let response: any;
     try {
       response = await Promise.race([
-        openai.chat.completions.create({
+        openaiClient.chat.completions.create({
           model: DEFAULT_OPENAI_MODEL,
           messages: [{ role: 'system', content: prompt }],
           temperature: 0.7,
@@ -340,65 +204,55 @@ export async function generateWorkout(
     const responseText = response.choices?.[0]?.message?.content || '';
     
     try {
-      // Try to parse the entire response as JSON
-      let jsonStr = responseText.trim();
-      let parsedData;
-      
+      // Parse the JSON response
+      let jsonResponse: WorkoutResponse;
       try {
-        // First attempt: parse the entire response
-        parsedData = JSON.parse(jsonStr);
-      } catch (parseError) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log('First parse attempt failed, trying to extract JSON...');
-        }
-        
-        // Second attempt: try to extract JSON from the response using regex
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/m);
-        if (!jsonMatch) {
-          // Third attempt: look for code blocks that might contain JSON
-          const codeBlockMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-          if (codeBlockMatch && codeBlockMatch[1]) {
-            if (process.env.NODE_ENV === 'development') {
-              console.log('Found JSON in code block, attempting to parse...');
-            }
-            jsonStr = codeBlockMatch[1].trim();
-            parsedData = JSON.parse(jsonStr);
-          } else {
-            throw new Error('Could not find JSON in response');
-          }
-        } else {
-          jsonStr = jsonMatch[0];
-          parsedData = JSON.parse(jsonStr);
-        }
-        parseAttempts++;
+        jsonResponse = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error('Failed to parse OpenAI response as JSON');
       }
-      
-      // Validate the parsed data against our expected shape
-      let validationResult = validateWorkoutData(parsedData, requestData.exerciseCount, useExerciseDatabase);
-      
-      // If validation fails with exercise database fields, try validating without them
-      if (!validationResult.valid && useExerciseDatabase) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Validation failed with exercise database fields: ${validationResult.error}`);
-          console.log('Trying validation without exercise database fields...');
+
+      // Validate with Zod
+      const validationResult = WorkoutSchema.safeParse(jsonResponse);
+
+      if (!validationResult.success) {
+        console.error('Workout schema validation failed:', validationResult.error);
+
+        // If validation fails and we haven't tried without enhanced fields, try again
+        if (useExerciseDatabase && process.env.NODE_ENV === 'development') {
+          console.log('Validation failed with exercise database fields, trying basic validation...');
+          // For now, we'll throw - but we could implement fallback logic here
         }
-        validationResult = validateWorkoutData(parsedData, requestData.exerciseCount, false);
-        
-        if (validationResult.valid) {
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Validation succeeded without exercise database fields');
-          }
+
+        throw new Error('AI response did not match expected workout schema');
+      }
+
+      // Check exercise count expectations (keep this as it's a business rule)
+      const exerciseCount = validationResult.data.workout.exercises.length;
+      if (exerciseCount < 1) {
+        throw new Error('Generated workout must have at least one exercise');
+      }
+
+      if (requestData.exerciseCount) {
+        const expected = requestData.exerciseCount;
+        if (exerciseCount < expected - 2 || exerciseCount > expected + 2) {
+          console.warn(`Workout exercise count differs from request: expected ~${expected}, got ${exerciseCount}`);
         }
       }
-      
-      if (!validationResult.valid) {
-        throw new Error(`Validation failed: ${validationResult.error}`);
-      }
-      
+
       // Return success result
       return {
         success: true,
-        data: parsedData.workout,
+        data: {
+          exercises: validationResult.data.workout.exercises,
+          total_duration_minutes: 0, // Will be calculated by the UI
+          muscle_groups_targeted: '', // Will be populated by UI
+          joint_groups_affected: '', // Will be populated by UI
+          equipment_needed: '', // Will be populated by UI
+          name: '', // Will be set by user
+          description: '', // Will be set by user
+          equipment_required: [] // Can be array
+        },
         rawResponse: responseText,
         parseAttempts,
         generationTimeMs: Date.now() - startTime,

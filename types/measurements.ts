@@ -27,6 +27,10 @@ export interface Measurement {
   image_url: string | null;
   created_at: string;
   updated_at: string;
+  delta_abs?: number | null;
+  delta_pct?: number | null;
+  trend_direction?: 'up' | 'down' | 'flat' | 'insufficient';
+  health_status?: 'healthy' | 'near_boundary' | 'moderately_exceeded' | 'critically_exceeded' | null;
 }
 
 /**
@@ -48,6 +52,15 @@ export interface MetricSummary {
   confidence: number | null;
   sparkline_points: SparklinePoint[];
   point_count: number;
+  change_pct?: number | null;
+  trend_direction?: 'up' | 'down' | 'flat' | 'insufficient';
+  min_value?: number | null;
+  max_value?: number | null;
+  healthy_min_male?: number | null;
+  healthy_max_male?: number | null;
+  healthy_min_female?: number | null;
+  healthy_max_female?: number | null;
+  health_status?: 'healthy' | 'near_boundary' | 'moderately_exceeded' | 'critically_exceeded' | null;
 }
 
 /**
@@ -65,6 +78,23 @@ export interface MetricDetailResponse {
   metric: string;
   display_name: string;
   measurements: MeasurementPublic[];
+  range?: {
+    min_value: number | null;
+    max_value: number | null;
+  } | null;
+  healthy_range?: {
+    min_male?: number | null;
+    max_male?: number | null;
+    min_female?: number | null;
+    max_female?: number | null;
+  } | null;
+  trend_summary?: {
+    change_pct: number | null;
+    delta_abs: number | null;
+    slope_per_day: number | null;
+    direction: 'up' | 'down' | 'flat' | 'insufficient' | null;
+    computed_at: string | null;
+  };
   query_time_ms?: number; // Only in development
 }
 

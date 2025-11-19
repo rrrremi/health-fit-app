@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { ChevronLeft, Save, Plus, Trash2, CheckCircle } from 'lucide-react'
+import { Upload, ChevronLeft, Camera, FileImage, Loader2, CheckCircle, AlertCircle, Plus, Trash2, Save } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 interface MetricCatalog {
@@ -192,7 +192,7 @@ export default function ManualEntryPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-2 pb-10">
+    <section className="mx-auto w-full max-w-3xl px-2 pb-16">
       {/* Back Button */}
       <div className="mb-2">
         <Link href="/protected/measurements">
@@ -256,7 +256,7 @@ export default function ManualEntryPage() {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.15 }}
-        className="relative overflow-hidden rounded-lg border border-white/10 bg-white/5 backdrop-blur-2xl"
+        className="relative overflow-hidden rounded-lg border border-white/10 bg-white/5 backdrop-blur-2xl mb-4"
       >
         <div className="p-3">
           <div className="space-y-2">
@@ -269,14 +269,14 @@ export default function ManualEntryPage() {
                 <select
                   value={measurement.metric}
                   onChange={(e) => updateMeasurement(index, 'metric', e.target.value)}
-                  className="flex-1 rounded-md bg-gray-900 border border-gray-700 px-2 py-1.5 text-xs text-white hover:border-fuchsia-400 focus:border-fuchsia-400 focus:outline-none cursor-pointer"
+                  className="flex-1 rounded-md bg-white/10 backdrop-blur-xl border border-white/20 px-2 py-1.5 text-xs text-white hover:border-white/30 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-fuchsia-400/40 cursor-pointer"
                   style={{ colorScheme: 'dark' }}
                 >
                   {metrics.map((metric) => (
                     <option 
                       key={metric.key} 
                       value={metric.key}
-                      style={{ backgroundColor: '#1f2937', color: '#ffffff' }}
+                      className="bg-slate-800 text-white hover:bg-slate-700"
                     >
                       {metric.display_name}
                     </option>
@@ -324,7 +324,7 @@ export default function ManualEntryPage() {
       </motion.div>
 
       {/* Save Button */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 mt-4">
         <Link href="/protected/measurements" className="flex-1">
           <button className="w-full rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-white/90 hover:bg-white/15 transition-colors">
             Cancel
@@ -333,11 +333,11 @@ export default function ManualEntryPage() {
         <button
           onClick={handleSave}
           disabled={saving || measurements.length === 0}
-          className="flex-1 rounded-lg bg-fuchsia-500/20 px-4 py-2.5 text-sm font-medium text-fuchsia-300 hover:bg-fuchsia-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="flex-1 rounded-lg bg-white/10 px-4 py-2.5 text-sm font-medium text-white/90 hover:bg-white/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {saving ? (
             <>
-              <div className="animate-spin h-4 w-4 border-2 border-fuchsia-300 border-t-transparent rounded-full"></div>
+              <div className="animate-spin h-4 w-4 border-2 border-white/60 border-t-transparent rounded-full"></div>
               Saving...
             </>
           ) : (

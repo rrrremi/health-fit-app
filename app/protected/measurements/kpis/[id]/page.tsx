@@ -95,11 +95,11 @@ function getStatusInfo(status: KPIStatus) {
       return {
         icon: AlertCircle,
         label: 'Attention',
-        textColor: 'text-red-400',
-        bgColor: 'bg-red-500/10',
-        borderColor: 'border-red-500/30',
-        badgeBg: 'bg-red-500/20',
-        badgeText: 'text-red-300'
+        textColor: 'text-destructive',
+        bgColor: 'bg-destructive/10',
+        borderColor: 'border-destructive/30',
+        badgeBg: 'bg-destructive/20',
+        badgeText: 'text-destructive'
       }
     default:
       return {
@@ -266,8 +266,8 @@ export default function KPIsDetailPage() {
   if (error || !kpiRecord) {
     return (
       <section className="mx-auto w-full max-w-4xl px-2 pb-10">
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4">
-          <p className="text-sm text-red-300">{error || 'KPIs not found'}</p>
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">{error || 'KPIs not found'}</p>
         </div>
       </section>
     )
@@ -328,12 +328,12 @@ export default function KPIsDetailPage() {
             </div>
             
             {/* Attention */}
-            <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-2 text-center">
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-2 text-center">
               <div className="flex items-center justify-center gap-1 mb-0.5">
-                <AlertCircle className="h-3 w-3 text-red-400" />
-                <span className="text-[10px] font-normal text-red-300">Attention</span>
+                <AlertCircle className="h-3 w-3 text-destructive" />
+                <span className="text-[10px] font-normal text-destructive">Attention</span>
               </div>
-              <div className="text-lg font-semibold text-red-400">{summaryStats.attention}</div>
+              <div className="text-lg font-semibold text-destructive">{summaryStats.attention}</div>
             </div>
             
             {/* Unknown */}

@@ -69,6 +69,79 @@ export interface Workout {
   rating?: number | null;
 }
 
+export interface WorkoutListItem {
+  id: string;
+  name: string | null;
+  created_at: string;
+  total_duration_minutes: number;
+  muscle_focus: string[] | string | null;
+  workout_focus: string[] | string | null;
+  workout_data: {
+    exercises: unknown[];
+  };
+  target_date: string | null;
+  status: 'new' | 'target' | 'missed' | 'completed' | null;
+  rating?: number | null;
+}
+
+export interface ParsedWorkoutData {
+  id: string;
+  muscles: string[];
+  focus: string[];
+}
+
+export type SortField = 'target_date' | 'created_at' | 'name';
+export type SortDirection = 'asc' | 'desc';
+
+export interface MuscleOption {
+  id: string;
+  label: string;
+}
+
+export interface FocusOption {
+  id: string;
+  label: string;
+}
+
+export interface StatusOption {
+  id: string;
+  label: string;
+}
+
+export const MUSCLE_OPTIONS: MuscleOption[] = [
+  { id: 'neck', label: 'Neck' },
+  { id: 'back', label: 'Back' },
+  { id: 'biceps', label: 'Biceps' },
+  { id: 'triceps', label: 'Triceps' },
+  { id: 'forearms', label: 'Forearms' },
+  { id: 'shoulders', label: 'Shoulders' },
+  { id: 'chest', label: 'Chest' },
+  { id: 'core', label: 'Core' },
+  { id: 'quads', label: 'Quads' },
+  { id: 'glutes', label: 'Glutes' },
+  { id: 'hamstrings', label: 'Hamstrings' },
+  { id: 'calves', label: 'Calves' },
+  { id: 'full_body', label: 'Full Body' }
+];
+
+export const FOCUS_OPTIONS: FocusOption[] = [
+  { id: 'cardio', label: 'Cardio' },
+  { id: 'hypertrophy', label: 'Hypertrophy' },
+  { id: 'isolation', label: 'Isolation' },
+  { id: 'isometric', label: 'Isometric' },
+  { id: 'plyometric', label: 'Plyometric' },
+  { id: 'stability', label: 'Stability' },
+  { id: 'strength', label: 'Strength' },
+  { id: 'mobility', label: 'Mobility' }
+];
+
+export const STATUS_OPTIONS: StatusOption[] = [
+  { id: 'new', label: 'New' },
+  { id: 'target', label: 'Target' },
+  { id: 'missed', label: 'Missed' },
+  { id: 'completed', label: 'Completed' }
+];
+
 export interface WorkoutGenerationRequest {
   muscleFocus: string[];
   workoutFocus: string[];

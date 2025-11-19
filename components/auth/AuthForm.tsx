@@ -46,7 +46,7 @@ export default function AuthForm({
                   <motion.div 
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-md border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-200 font-light"
+                    className="rounded-md border border-destructive/20 bg-destructive/10 p-2 text-xs text-destructive font-light"
                   >
                     {error}
                   </motion.div>
@@ -64,7 +64,7 @@ export default function AuthForm({
                   <motion.div 
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="rounded-md border border-red-500/20 bg-red-500/10 p-2 text-xs text-red-200 font-light"
+                    className="rounded-md border border-destructive/20 bg-destructive/10 p-2 text-xs text-destructive font-light"
                   >
                     {error}
                   </motion.div>

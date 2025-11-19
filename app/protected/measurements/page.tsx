@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Scale, Upload, Plus, Search, Filter, ChevronDown, ChevronUp, X, ArrowUpDown, ArrowUp, ArrowDown, Activity, TrendingUp } from 'lucide-react'
+import { Scale, Upload, Plus, Search, Filter, ChevronDown, ChevronUp, X, ArrowUpDown, ArrowUp, ArrowDown, Activity } from 'lucide-react'
 import { useMeasurementsSummary } from '@/hooks/useMeasurementsSummary'
 import { MetricCard } from '@/components/measurements/MetricCard'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -19,7 +19,7 @@ const DATE_FILTER_OPTIONS = [
 
 function MeasurementsPageContent() {
   const { data, isLoading, error } = useMeasurementsSummary()
-  
+
   // Filter and sort state - ALL HOOKS MUST BE AT THE TOP
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(false)
@@ -30,18 +30,17 @@ function MeasurementsPageContent() {
   const [sortField, setSortField] = useState<'name' | 'date'>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false)
-  const [isGeneratingKPIs, setIsGeneratingKPIs] = useState(false)
-  
+
   // Get unique categories from the data
   const availableCategories = useMemo(() => {
     if (!data?.metrics) return []
-    
+
     // Filter out metrics without category field (migration not run yet)
     const metricsWithCategories = data.metrics.filter(m => m.category)
     if (metricsWithCategories.length === 0) return []
-    
+
     const categorySet = new Set(metricsWithCategories.map(m => m.category))
-    
+
     // Use categories as-is from database, just format for display
     return Array.from(categorySet)
       .filter(cat => cat) // Remove undefined/null
@@ -51,27 +50,27 @@ function MeasurementsPageContent() {
       }))
       .sort((a, b) => a.label.localeCompare(b.label))
   }, [data?.metrics])
-  
+
   // Filter and sort metrics
   const filteredAndSortedMetrics = useMemo(() => {
     if (!data?.metrics) return []
-    
+
     let filtered = data.metrics.filter(metric => {
       // Filter by search term
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         metric.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         metric.metric.toLowerCase().includes(searchTerm.toLowerCase())
-      
+
       // Filter by category (use actual category from catalog)
-      const matchesCategory = selectedCategories.length === 0 || 
+      const matchesCategory = selectedCategories.length === 0 ||
         (metric.category && selectedCategories.includes(metric.category))
-      
+
       // Filter by date
       let matchesDate = true
       if (dateFilter !== 'all') {
         const metricDate = new Date(metric.latest_date)
         const now = new Date()
-        
+
         if (dateFilter === 'today') {
           const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
           matchesDate = metricDate >= today
@@ -92,30 +91,30 @@ function MeasurementsPageContent() {
           }
         }
       }
-      
+
       return matchesSearch && matchesCategory && matchesDate
     })
-    
+
     // Sort metrics
     filtered.sort((a, b) => {
       let comparison = 0
-      
+
       if (sortField === 'name') {
         comparison = a.display_name.localeCompare(b.display_name)
       } else if (sortField === 'date') {
         comparison = new Date(a.latest_date).getTime() - new Date(b.latest_date).getTime()
       }
-      
+
       return sortDirection === 'asc' ? comparison : -comparison
     })
-    
+
     return filtered
   }, [data?.metrics, searchTerm, selectedCategories, dateFilter, customDateFrom, customDateTo, sortField, sortDirection])
-  
+
   // Computed values
   const hasMetrics = data?.metrics && data.metrics.length > 0
   const hasActiveFilters = searchTerm || selectedCategories.length > 0 || dateFilter !== 'all'
-  
+
   // Early returns AFTER all hooks
   if (isLoading) {
     return (
@@ -134,15 +133,15 @@ function MeasurementsPageContent() {
       </section>
     )
   }
-  
+
   const toggleCategory = (categoryId: string) => {
-    setSelectedCategories(prev => 
+    setSelectedCategories(prev =>
       prev.includes(categoryId)
         ? prev.filter(id => id !== categoryId)
         : [...prev, categoryId]
     )
   }
-  
+
   const toggleSort = (field: 'name' | 'date') => {
     if (sortField === field) {
       setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc')
@@ -151,7 +150,7 @@ function MeasurementsPageContent() {
       setSortDirection('asc')
     }
   }
-  
+
   const clearFilters = () => {
     setSearchTerm('')
     setSelectedCategories([])
@@ -159,7 +158,7 @@ function MeasurementsPageContent() {
     setCustomDateFrom('')
     setCustomDateTo('')
   }
-  
+
   const handleGenerateAnalysis = async () => {
     setIsGeneratingAnalysis(true)
     try {
@@ -174,7 +173,7 @@ function MeasurementsPageContent() {
       }
 
       const result = await response.json()
-      
+
       // Redirect to analysis page
       window.location.href = `/protected/measurements/analysis/${result.analysis_id}`
     } catch (error: any) {
@@ -185,36 +184,11 @@ function MeasurementsPageContent() {
     }
   }
 
-  const handleGenerateKPIs = async () => {
-    setIsGeneratingKPIs(true)
-    try {
-      const response = await fetch('/api/measurements/kpis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to generate KPIs')
-      }
-
-      const result = await response.json()
-      
-      // Redirect to KPIs page
-      window.location.href = `/protected/measurements/kpis/${result.kpi_id}`
-    } catch (error: any) {
-      console.error('Error generating KPIs:', error)
-      alert(error.message || 'Failed to generate KPIs')
-    } finally {
-      setIsGeneratingKPIs(false)
-    }
-  }
-
   const SortIcon = ({ field }: { field: 'name' | 'date' }) => {
     if (sortField !== field) {
       return <ArrowUpDown className="h-3 w-3 text-white/30" />
     }
-    return sortDirection === 'asc' 
+    return sortDirection === 'asc'
       ? <ArrowUp className="h-3 w-3 text-emerald-400" />
       : <ArrowDown className="h-3 w-3 text-emerald-400" />
   }
@@ -222,34 +196,26 @@ function MeasurementsPageContent() {
   return (
     <section className="mx-auto w-full max-w-3xl px-2 pb-10">
       {/* Action Buttons */}
-      <div className="mb-2 flex items-center justify-between relative z-10">
+      <div className="mb-1.5 flex items-center justify-between relative z-10">
         <div></div>
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={handleGenerateKPIs}
-            disabled={isGeneratingKPIs || !hasMetrics}
-            className="flex items-center gap-1 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <TrendingUp className="h-3.5 w-3.5" />
-            {isGeneratingKPIs ? 'Generating...' : 'KPIs'}
-          </button>
+        <div className="flex items-center gap-1">
           <button
             onClick={handleGenerateAnalysis}
             disabled={isGeneratingAnalysis || !hasMetrics}
-            className="flex items-center gap-1 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 rounded-md border border-transparent bg-white/5 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Activity className="h-3.5 w-3.5" />
+            <Activity className="h-3 w-3" />
             {isGeneratingAnalysis ? 'Analyzing...' : 'Analysis'}
           </button>
           <Link href="/protected/measurements/upload">
-            <button className="flex items-center gap-1 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">
-              <Upload className="h-3.5 w-3.5" />
+            <button className="flex items-center gap-1 rounded-md border border-transparent bg-white/5 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">
+              <Upload className="h-3 w-3" />
               Upload
             </button>
           </Link>
           <Link href="/protected/measurements/manual">
-            <button className="flex items-center gap-1 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">
-              <Plus className="h-3.5 w-3.5" />
+            <button className="flex items-center gap-1 rounded-md border border-transparent bg-white/5 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">
+              <Plus className="h-3 w-3" />
               Manual
             </button>
           </Link>
@@ -260,16 +226,16 @@ function MeasurementsPageContent() {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-3"
+        className="space-y-2"
       >
         {/* Title */}
-        <div className="relative overflow-hidden rounded-lg border border-transparent bg-white/5 p-3 backdrop-blur-2xl">
+        <div className="relative overflow-hidden rounded-md border border-transparent bg-white/5 p-2.5 backdrop-blur-2xl">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Scale className="h-5 w-5 text-white/70" />
+            <div className="flex items-center gap-1.5">
+              <Scale className="h-4 w-4 text-white/70" />
               <div>
-                <h1 className="text-xl font-semibold">Your Measurements</h1>
-                <p className="text-xs text-white/70">Track your body composition and health metrics</p>
+                <h1 className="text-lg font-semibold leading-tight">Your Measurements</h1>
+                <p className="text-[11px] text-white/60 leading-tight">Track your body composition and health metrics</p>
               </div>
             </div>
           </div>
@@ -277,10 +243,10 @@ function MeasurementsPageContent() {
 
         {/* Empty State */}
         {!hasMetrics && (
-          <div className="rounded-lg border border-transparent bg-white/5 p-8 text-center backdrop-blur-2xl">
-            <Scale className="h-12 w-12 mx-auto text-white/30 mb-3" />
-            <h3 className="text-lg font-medium text-white mb-2">No measurements yet</h3>
-            <p className="text-sm text-white/60 mb-4">
+          <div className="rounded-md border border-transparent bg-white/5 p-6 text-center backdrop-blur-2xl">
+            <Scale className="h-10 w-10 mx-auto text-white/30 mb-2" />
+            <h3 className="text-base font-medium text-white mb-1.5">No measurements yet</h3>
+            <p className="text-xs text-white/60 mb-3">
               Upload an InBody report or add measurements manually to get started
             </p>
           </div>
@@ -288,56 +254,56 @@ function MeasurementsPageContent() {
 
         {/* Metrics Grid */}
         {hasMetrics && (
-          <div className="space-y-3">
+          <div className="space-y-2">
             {/* Search and Filter Controls */}
-            <div className="rounded-lg border border-transparent bg-white/5 backdrop-blur-xl overflow-hidden">
-              <div className="p-2 border-b border-transparent">
+            <div className="rounded-md border border-transparent bg-white/5 backdrop-blur-xl overflow-hidden">
+              <div className="p-1.5 border-b border-transparent">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <div className="relative">
-                      <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-white/40" />
+                      <Search className="absolute left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-white/40" />
                       <input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search metrics"
-                        className="w-32 rounded-md border border-white/20 bg-white/10 py-1 pl-6 pr-2 text-xs font-light text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none backdrop-blur-xl"
+                        className="w-32 rounded border border-white/20 bg-white/10 py-1 pl-5 pr-2 text-[11px] font-light text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none backdrop-blur-xl"
                       />
                     </div>
                     {hasActiveFilters && (
-                      <button 
+                      <button
                         onClick={clearFilters}
-                        className="flex items-center gap-1 rounded-md border border-white/20 bg-white/10 px-2 py-1 text-xs font-light text-white/80 hover:bg-white/20 transition-colors"
+                        className="flex items-center gap-0.5 rounded border border-white/20 bg-white/10 px-1.5 py-1 text-[11px] font-light text-white/80 hover:bg-white/20 transition-colors"
                       >
-                        <X className="h-3 w-3" strokeWidth={1.5} />
+                        <X className="h-2.5 w-2.5" strokeWidth={1.5} />
                       </button>
                     )}
                     <button
                       onClick={() => setShowFilters(!showFilters)}
-                      className="flex items-center gap-1 rounded-md border border-white/20 bg-white/10 px-2 py-1 text-xs font-light text-white/80 hover:bg-white/20 transition-colors"
+                      className="flex items-center gap-0.5 rounded border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-light text-white/80 hover:bg-white/20 transition-colors"
                     >
-                      <Filter className="h-3 w-3" strokeWidth={1.5} />
+                      <Filter className="h-2.5 w-2.5" strokeWidth={1.5} />
                       <span className="hidden sm:inline">Filter</span>
                       {showFilters ? (
-                        <ChevronUp className="h-3 w-3" strokeWidth={1.5} />
+                        <ChevronUp className="h-2.5 w-2.5" strokeWidth={1.5} />
                       ) : (
-                        <ChevronDown className="h-3 w-3" strokeWidth={1.5} />
+                        <ChevronDown className="h-2.5 w-2.5" strokeWidth={1.5} />
                       )}
                     </button>
                   </div>
-                  
+
                   {/* Sort buttons */}
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => toggleSort('name')}
-                      className="flex items-center gap-1 rounded-md border border-white/20 bg-white/10 px-2 py-1 text-xs font-light text-white/80 hover:bg-white/20 transition-colors"
+                      className="flex items-center gap-0.5 rounded border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-light text-white/80 hover:bg-white/20 transition-colors"
                     >
                       Name
                       <SortIcon field="name" />
                     </button>
                     <button
                       onClick={() => toggleSort('date')}
-                      className="flex items-center gap-1 rounded-md border border-white/20 bg-white/10 px-2 py-1 text-xs font-light text-white/80 hover:bg-white/20 transition-colors"
+                      className="flex items-center gap-0.5 rounded border border-white/20 bg-white/10 px-2 py-1 text-[11px] font-light text-white/80 hover:bg-white/20 transition-colors"
                     >
                       Date
                       <SortIcon field="date" />
@@ -345,20 +311,20 @@ function MeasurementsPageContent() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Filter Panel */}
               {showFilters && (
-                <div className="p-3 border-t border-white/10 bg-white/5">
-                  <div className="space-y-4">
+                <div className="p-2.5 border-t border-white/10 bg-white/5">
+                  <div className="space-y-3">
                     {/* Date Filter */}
                     <div>
-                      <p className="text-xs font-medium text-white/70 mb-2">Date Added</p>
-                      <div className="flex flex-wrap gap-2 mb-2">
+                      <p className="text-[10px] font-medium text-white/60 mb-1.5">Date Added</p>
+                      <div className="flex flex-wrap gap-1.5 mb-1.5">
                         {DATE_FILTER_OPTIONS.map(option => (
                           <button
                             key={option.id}
                             onClick={() => setDateFilter(option.id)}
-                            className={`px-2 py-1 rounded-md text-xs transition-colors ${
+                            className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
                               dateFilter === option.id
                                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                 : 'bg-white/10 text-white/70 border border-white/20 hover:bg-white/20'
@@ -368,42 +334,42 @@ function MeasurementsPageContent() {
                           </button>
                         ))}
                       </div>
-                      
+
                       {/* Custom Date Range Inputs */}
                       {dateFilter === 'custom' && (
-                        <div className="flex gap-2 mt-2">
+                        <div className="flex gap-1.5 mt-1.5">
                           <div className="flex-1">
-                            <label className="text-[10px] text-white/50 mb-1 block">From</label>
+                            <label className="text-[9px] text-white/50 mb-0.5 block">From</label>
                             <input
                               type="date"
                               value={customDateFrom}
                               onChange={(e) => setCustomDateFrom(e.target.value)}
-                              className="w-full rounded bg-white/10 px-2 py-1 text-xs text-white focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                              className="w-full rounded bg-white/10 px-1.5 py-0.5 text-[11px] text-white focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                             />
                           </div>
                           <div className="flex-1">
-                            <label className="text-[10px] text-white/50 mb-1 block">To</label>
+                            <label className="text-[9px] text-white/50 mb-0.5 block">To</label>
                             <input
                               type="date"
                               value={customDateTo}
                               onChange={(e) => setCustomDateTo(e.target.value)}
-                              className="w-full rounded bg-white/10 px-2 py-1 text-xs text-white focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-emerald-400"
+                              className="w-full rounded bg-white/10 px-1.5 py-0.5 text-[11px] text-white focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-emerald-400"
                             />
                           </div>
                         </div>
                       )}
                     </div>
-                    
+
                     {/* Category Filter */}
                     <div>
-                      <p className="text-xs font-medium text-white/70 mb-2">Categories</p>
+                      <p className="text-[10px] font-medium text-white/60 mb-1.5">Categories</p>
                       {availableCategories.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                           {availableCategories.map(category => (
                             <button
                               key={category.id}
                               onClick={() => toggleCategory(category.id)}
-                              className={`px-2 py-1 rounded-md text-xs transition-colors ${
+                              className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
                                 selectedCategories.includes(category.id)
                                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                                   : 'bg-white/10 text-white/70 border border-white/20 hover:bg-white/20'
@@ -414,7 +380,7 @@ function MeasurementsPageContent() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-xs text-white/40 italic">
+                        <p className="text-[10px] text-white/40 italic">
                           Run database migration to enable category filtering
                         </p>
                       )}
@@ -423,37 +389,37 @@ function MeasurementsPageContent() {
                 </div>
               )}
             </div>
-            
+
             {/* Results count */}
             <div className="flex items-center justify-between">
-              <p className="text-xs text-white/60">
+              <p className="text-[10px] text-white/60">
                 {filteredAndSortedMetrics.length} of {data.metrics.length} {filteredAndSortedMetrics.length === 1 ? 'metric' : 'metrics'}
               </p>
               {data.query_time_ms && (
-                <p className="text-xs text-white/40">
+                <p className="text-[10px] text-white/40">
                   Loaded in {data.query_time_ms}ms
                 </p>
               )}
             </div>
-            
+
             {/* Metrics list */}
             {filteredAndSortedMetrics.length > 0 ? (
-              <div className="grid gap-3">
+              <div className="grid gap-2">
                 {filteredAndSortedMetrics.map((metric) => (
                   <MetricCard key={metric.metric} metric={metric} />
                 ))}
               </div>
             ) : (
-              <div className="rounded-lg border border-transparent bg-white/5 p-8 text-center backdrop-blur-2xl">
-                <Search className="h-12 w-12 mx-auto text-white/30 mb-3" />
-                <h3 className="text-lg font-medium text-white mb-2">No metrics found</h3>
-                <p className="text-sm text-white/60 mb-4">
+              <div className="rounded-md border border-transparent bg-white/5 p-6 text-center backdrop-blur-2xl">
+                <Search className="h-10 w-10 mx-auto text-white/30 mb-2" />
+                <h3 className="text-base font-medium text-white mb-1.5">No metrics found</h3>
+                <p className="text-xs text-white/60 mb-3">
                   Try adjusting your search or filters
                 </p>
                 {hasActiveFilters && (
                   <button
                     onClick={clearFilters}
-                    className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                    className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors"
                   >
                     Clear all filters
                   </button>
@@ -474,4 +440,3 @@ export default function MeasurementsPage() {
     </ErrorBoundary>
   )
 }
-    

@@ -14,6 +14,10 @@ interface Metric {
   category: string
   min_value: number | null
   max_value: number | null
+  healthy_min_male: number | null
+  healthy_max_male: number | null
+  healthy_min_female: number | null
+  healthy_max_female: number | null
   sort_order: number
 }
 
@@ -219,6 +223,10 @@ export default function AdminMetricsPage() {
       category: 'composition',
       min_value: null,
       max_value: null,
+      healthy_min_male: null,
+      healthy_max_male: null,
+      healthy_min_female: null,
+      healthy_max_female: null,
       sort_order: metrics.length + 1,
       isNew: true
     })
@@ -280,6 +288,10 @@ export default function AdminMetricsPage() {
             category: editingMetric.category,
             min_value: editingMetric.min_value,
             max_value: editingMetric.max_value,
+            healthy_min_male: editingMetric.healthy_min_male,
+            healthy_max_male: editingMetric.healthy_max_male,
+            healthy_min_female: editingMetric.healthy_min_female,
+            healthy_max_female: editingMetric.healthy_max_female,
             sort_order: editingMetric.sort_order
           })
 
@@ -294,6 +306,10 @@ export default function AdminMetricsPage() {
             category: editingMetric.category,
             min_value: editingMetric.min_value,
             max_value: editingMetric.max_value,
+            healthy_min_male: editingMetric.healthy_min_male,
+            healthy_max_male: editingMetric.healthy_max_male,
+            healthy_min_female: editingMetric.healthy_min_female,
+            healthy_max_female: editingMetric.healthy_max_female,
             sort_order: editingMetric.sort_order
           })
           .eq('key', editingMetric.key)
@@ -375,7 +391,7 @@ export default function AdminMetricsPage() {
 
         {/* Error */}
         {error && (
-          <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-300">
+          <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive">
             {error}
           </div>
         )}
@@ -459,6 +475,8 @@ export default function AdminMetricsPage() {
                     </button>
                   </th>
                   <th className="text-left p-3 text-xs font-medium text-white/70">Range</th>
+                  <th className="text-center p-3 text-xs font-medium text-white/70">Male Healthy</th>
+                  <th className="text-center p-3 text-xs font-medium text-white/70">Female Healthy</th>
                   <th className="text-left p-3 text-xs font-medium text-white/70">
                     <button
                       onClick={() => handleSort('sort_order')}
@@ -487,6 +505,20 @@ export default function AdminMetricsPage() {
                         ? `${metric.min_value} - ${metric.max_value}`
                         : '—'}
                     </td>
+                    <td className="p-3 text-xs text-center">
+                      <div className="text-emerald-400">
+                        {metric.healthy_min_male !== null && metric.healthy_max_male !== null
+                          ? `${metric.healthy_min_male} - ${metric.healthy_max_male}`
+                          : '—'}
+                      </div>
+                    </td>
+                    <td className="p-3 text-xs text-center">
+                      <div className="text-blue-400">
+                        {metric.healthy_min_female !== null && metric.healthy_max_female !== null
+                          ? `${metric.healthy_min_female} - ${metric.healthy_max_female}`
+                          : '—'}
+                      </div>
+                    </td>
                     <td className="p-3 text-sm text-white/60">{metric.sort_order}</td>
                     <td className="p-3">
                       <div className="flex items-center justify-end gap-2">
@@ -498,7 +530,7 @@ export default function AdminMetricsPage() {
                         </button>
                         <button
                           onClick={() => setDeleteKey(metric.key)}
-                          className="p-1.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
+                          className="p-1.5 rounded bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -640,6 +672,58 @@ export default function AdminMetricsPage() {
                 </div>
               </div>
 
+              {/* Healthy Ranges */}
+              <div className="border-t border-white/10 pt-4 mt-4">
+                <h4 className="text-sm font-medium text-white/90 mb-3">Healthy Reference Ranges</h4>
+                <div className="space-y-3">
+                  {/* Male Healthy Range */}
+                  <div>
+                    <label className="block text-xs font-medium text-emerald-400 mb-2">Male Healthy Range</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editingMetric.healthy_min_male ?? ''}
+                        onChange={(e) => setEditingMetric({ ...editingMetric, healthy_min_male: e.target.value ? parseFloat(e.target.value) : null })}
+                        placeholder="Min"
+                        className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm text-white placeholder-white/40 focus:bg-emerald-500/15 focus:outline-none focus:ring-1 focus:ring-emerald-400/40"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editingMetric.healthy_max_male ?? ''}
+                        onChange={(e) => setEditingMetric({ ...editingMetric, healthy_max_male: e.target.value ? parseFloat(e.target.value) : null })}
+                        placeholder="Max"
+                        className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm text-white placeholder-white/40 focus:bg-emerald-500/15 focus:outline-none focus:ring-1 focus:ring-emerald-400/40"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Female Healthy Range */}
+                  <div>
+                    <label className="block text-xs font-medium text-blue-400 mb-2">Female Healthy Range</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editingMetric.healthy_min_female ?? ''}
+                        onChange={(e) => setEditingMetric({ ...editingMetric, healthy_min_female: e.target.value ? parseFloat(e.target.value) : null })}
+                        placeholder="Min"
+                        className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm text-white placeholder-white/40 focus:bg-blue-500/15 focus:outline-none focus:ring-1 focus:ring-blue-400/40"
+                      />
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={editingMetric.healthy_max_female ?? ''}
+                        onChange={(e) => setEditingMetric({ ...editingMetric, healthy_max_female: e.target.value ? parseFloat(e.target.value) : null })}
+                        placeholder="Max"
+                        className="px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-sm text-white placeholder-white/40 focus:bg-blue-500/15 focus:outline-none focus:ring-1 focus:ring-blue-400/40"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Sort Order */}
               <div>
                 <label className="block text-xs font-medium text-white/70 mb-1">Sort Order</label>
@@ -692,7 +776,7 @@ export default function AdminMetricsPage() {
             <p className="text-sm text-white/60 mb-2">
               Are you sure you want to delete <strong className="text-white">{deleteKey}</strong>?
             </p>
-            <p className="text-xs text-red-300/80 mb-6">
+            <p className="text-xs text-destructive/80 mb-6">
               ⚠️ This will not delete existing measurements using this metric.
             </p>
             <div className="flex gap-3">
@@ -706,10 +790,10 @@ export default function AdminMetricsPage() {
               <button
                 onClick={() => handleDelete(deleteKey)}
                 disabled={actionLoading}
-                className="flex-1 rounded-lg bg-red-500/20 px-4 py-2 text-sm font-medium text-red-300 hover:bg-red-500/30 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 rounded-lg bg-destructive/20 px-4 py-2 text-sm font-medium text-destructive hover:bg-destructive/30 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {actionLoading ? (
-                  <div className="animate-spin h-4 w-4 border-2 border-red-300 border-t-transparent rounded-full" />
+                  <div className="animate-spin h-4 w-4 border-2 border-destructive border-t-transparent rounded-full" />
                 ) : (
                   <>
                     <Trash2 className="h-4 w-4" />

@@ -185,11 +185,11 @@ const MuscleGroupSelector: React.FC<MuscleGroupSelectorProps> = ({
   return (
     <div className="muscle-group-selector">
       {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 text-red-800 p-2 rounded mb-3 text-sm">
+        <div className="bg-destructive/10 border-l-4 border-destructive text-destructive p-2 rounded mb-3 text-sm">
           <span>{error}</span>
           <button 
             onClick={() => setError(null)} 
-            className="ml-2 text-red-700 hover:text-red-900"
+            className="ml-2 text-destructive hover:text-destructive/80"
             aria-label="Dismiss error"
           >
             ×

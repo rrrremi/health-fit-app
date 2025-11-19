@@ -78,11 +78,11 @@ export default function InlineEdit({
           maxLength={maxLength}
           placeholder={placeholder}
           className={`w-full px-2 py-1 rounded-md bg-white/10 border ${
-            isAtLimit ? 'border-red-400/50' : 'border-transparent'
-          } focus:outline-none focus:border-fuchsia-400/50 text-white/90 text-sm`}
+            isAtLimit ? 'border-destructive/50' : 'border-transparent'
+          } focus:outline-none focus:border-primary/50 text-foreground text-sm`}
         />
         <div className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] ${
-          isAtLimit ? 'text-red-400' : 'text-white/50'
+          isAtLimit ? 'text-destructive' : 'text-muted-foreground'
         }`}>
           {charCount}/{maxLength}
         </div>
@@ -97,7 +97,7 @@ export default function InlineEdit({
         </button>
         <button
           onClick={handleCancel}
-          className="p-1 rounded-md bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
+          className="p-1 rounded-md bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors"
           title="Cancel"
         >
           <X className="h-3.5 w-3.5" />

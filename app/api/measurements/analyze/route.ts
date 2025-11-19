@@ -2,18 +2,15 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { cacheHelper, cacheKeys, cacheTTL } from '@/lib/cache'
-import { KPI_CATALOG } from '@/lib/kpi-catalog'
-import { normalizeMetricName } from '@/lib/metric-mappings'
+import { AnalysisSchema, AnalysisResponse } from '@/lib/validations/analysis'
+import { getOpenAIClient } from '@/lib/openai-client'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-})
+const openai = getOpenAIClient()
 
 // ULTRA-OPTIMIZED: Minimal prompt (600 tokens vs 1500 tokens = 60% reduction)
-const SYSTEM_PROMPT = `Clinician-analyst. CSV + pre-calculated KPIs in; JSON out only.
+const SYSTEM_PROMPT = `meta-clinician-analyst master.CSV + pre-calculated KPIs in; JSON out only.
 
-Do: QC (unit/range/date/miss/dup) → interpret (age/sex refs) → use pre-calculated KPIs when available → derive additional metrics if needed → trends (Δabs,Δ%,dir) → relations (cross-domain + physiology) → paradoxes (with explanations) → risks (low/mod/high + why) → overall condition and next steps (labs,lifestyle,clinical).
-
+do in order: performQC,findKeyTrends,,deriveMetrics,giveAllKPIs,findCorrelations,findParadoxes,findAllRisks,findBestNextSteps,findUncertainties,findDataGaps,summarizePreciselywithObservation,
 Schema:
 {
   "sum": "",
@@ -35,19 +32,19 @@ Schema:
   "gaps": []
 }
 
-Rules: concise; respect units; if derived invalid set ok=false with note.`
+Rules: be precise but explanatory; respect units; if derived invalid set ok=false with note.`
 
 // Map abbreviated response to full schema
-function mapAbbreviatedResponse(abbreviated: any): any {
+function mapAbbreviatedResponse(abbreviated: AnalysisResponse): any {
   return {
     summary: abbreviated.sum || '',
-    qc_issues: (abbreviated.qc || []).map((item: any) => ({
+    qc_issues: (abbreviated.qc || []).map((item) => ({
       item: item.item || '',
       type: item.type || '',
       detail: item.detail || ''
     })),
     normalization_notes: abbreviated.norm || [],
-    derived_metrics: (abbreviated.drv || []).map((item: any) => ({
+    derived_metrics: (abbreviated.drv || []).map((item) => ({
       name: item.name || '',
       value: item.val,
       unit: item.unit || '',
@@ -56,14 +53,14 @@ function mapAbbreviatedResponse(abbreviated: any): any {
       valid: item.ok !== false,
       note: item.note || ''
     })),
-    current_state: (abbreviated.state || []).map((item: any) => ({
+    current_state: (abbreviated.state || []).map((item) => ({
       metric: item.metric || '',
       latest_value: item.val,
       unit: item.unit || '',
       date: item.date || '',
       interpretation: item.interp || ''
     })),
-    trends: (abbreviated.tr || []).map((item: any) => ({
+    trends: (abbreviated.tr || []).map((item) => ({
       metric: item.metric || '',
       direction: item.dir || '',
       delta_abs: item.d_abs,
@@ -72,39 +69,35 @@ function mapAbbreviatedResponse(abbreviated: any): any {
       end_date: item.end || '',
       comment: item.cmt || ''
     })),
-    correlations: (abbreviated.rel || []).map((item: any) => ({
+    correlations: (abbreviated.rel || []).map((item) => ({
       between: item.between || [],
       strength: item.strength || '',
       pattern: item.pattern || '',
       physiology: item.phys || ''
     })),
-    paradoxes: (abbreviated.px || []).map((item: any) => ({
+    paradoxes: (abbreviated.px || []).map((item) => ({
       finding: item.finding || '',
       why_paradoxical: item.why || '',
       possible_explanations: item.expl || []
     })),
-    hypotheses: (abbreviated.hyp || []).map((item: any) => ({
+    hypotheses: (abbreviated.hyp || []).map((item) => ({
       claim: item.claim || '',
       evidence: item.ev || [],
       alt_explanations: item.alt || []
     })),
-    risk_assessment: (abbreviated.risk || []).map((item: any) => ({
+    risk_assessment: (abbreviated.risk || []).map((item) => ({
       area: item.area || '',
       level: item.lvl || '',
-      rationale: typeof item.why === 'string' ? item.why : (item.why?.rationale || item.rationale || '')
+      rationale: item.why || ''
     })),
     recommendations_next_steps: {
-      labs_to_repeat_or_add: (abbreviated.next?.labs || []).map((item: any) => ({
+      labs_to_repeat_or_add: (abbreviated.next?.labs || []).map((item) => ({
         test: item.test || '',
-        why: typeof item.why === 'string' ? item.why : '',
+        why: item.why || '',
         timing: item.when || ''
       })),
-      lifestyle_focus: (abbreviated.next?.life || []).map((item: any) => 
-        typeof item === 'string' ? item : (item.text || item.action || JSON.stringify(item))
-      ),
-      clinical_followup: (abbreviated.next?.clinic || []).map((item: any) => 
-        typeof item === 'string' ? item : (item.text || item.action || JSON.stringify(item))
-      )
+      lifestyle_focus: abbreviated.next?.life || [],
+      clinical_followup: abbreviated.next?.clinic || []
     },
     uncertainties: abbreviated.unc || [],
     data_gaps: abbreviated.gaps || []
@@ -131,13 +124,13 @@ function formatMeasurementsAsCSV(
     return acc
   }, {} as Record<string, Measurement[]>)
 
-  // OPTIMIZED: Get last 5 per metric (50% data reduction)
+  // Get last 15 per metric
   const limitedData: Measurement[] = []
 
   for (const [metric, values] of Object.entries(byMetric)) {
     const sorted = values
       .sort((a, b) => new Date(b.measured_at).getTime() - new Date(a.measured_at).getTime())
-      .slice(0, 5) // Changed from 10 to 5
+      .slice(0, 15) // Take last 15 per metric
     limitedData.push(...sorted)
   }
 
@@ -158,7 +151,7 @@ function formatMeasurementsAsCSV(
 Age: ${profile.age || 'not provided'}
 Sex: ${profile.sex || 'not provided'}
 
-Measurements (CSV format, last 5 values per metric, newest first):
+Measurements (CSV format, last 15 values per metric, newest first):
 ${csv}`
 }
 
@@ -184,14 +177,13 @@ export async function POST(request: Request) {
         .eq('id', user.id)
         .single(),
       
-      // OPTIMIZATION 2: Limit data at DB level - only get last 10 per metric
-      // Use a subquery to get recent measurements efficiently
+      // OPTIMIZATION 2: Limit data at DB level - get recent measurements
       supabase
         .from('measurements')
         .select('metric, value, unit, measured_at, source')
         .eq('user_id', user.id)
         .order('measured_at', { ascending: false })
-        .limit(500), // Reasonable limit: ~50 metrics × 10 values
+        .limit(1000), // Get enough data to have 15 per metric (e.g., ~60 metrics × 15 = 900)
       
       // OPTIMIZATION 3: Cache catalog (rarely changes)
       cacheHelper.getOrSet(
@@ -234,43 +226,6 @@ export async function POST(request: Request) {
     const dbTime = Date.now() - startTime
     console.log(`DB queries completed in ${dbTime}ms`)
 
-    // NEW: Build metric availability map
-    const availableMetrics = new Map<string, {value: number, unit: string}>()
-    measurements.forEach(m => {
-      const normalizedKey = normalizeMetricName(m.metric)
-      if (!availableMetrics.has(normalizedKey)) {
-        availableMetrics.set(normalizedKey, {
-          value: m.value,
-          unit: m.unit
-        })
-      }
-    })
-
-    // Calculate derived metrics (BMI, Non-HDL, etc.)
-    if (availableMetrics.has('w') && availableMetrics.has('h')) {
-      const w = availableMetrics.get('w')!.value
-      const h = availableMetrics.get('h')!.value
-      availableMetrics.set('bmi', { value: w / (h * h), unit: 'kg/m²' })
-    }
-    if (availableMetrics.has('tc') && availableMetrics.has('hdl')) {
-      const tc = availableMetrics.get('tc')!.value
-      const hdl = availableMetrics.get('hdl')!.value
-      availableMetrics.set('nonhdl', { value: tc - hdl, unit: 'mg/dL' })
-    }
-    if (availableMetrics.has('glucose') && availableMetrics.has('insulin')) {
-      const glucose = availableMetrics.get('glucose')!.value
-      const insulin = availableMetrics.get('insulin')!.value
-      availableMetrics.set('homa_ir', { value: (glucose * insulin) / 405, unit: 'index' })
-    }
-
-    // Filter eligible KPIs
-    const availableKeys = Array.from(availableMetrics.keys())
-    const eligibleKPIs = KPI_CATALOG.filter(kpi => 
-      kpi.m.every(requiredMetric => availableKeys.includes(requiredMetric))
-    )
-
-    console.log(`Found ${eligibleKPIs.length} calculable KPIs out of ${KPI_CATALOG.length} total`)
-
     // Format data as CSV
     const csvData = formatMeasurementsAsCSV(profile, measurements, catalogData)
 
@@ -279,38 +234,17 @@ export async function POST(request: Request) {
     const dateRangeStart = new Date(Math.min(...dates)).toISOString()
     const dateRangeEnd = new Date(Math.max(...dates)).toISOString()
 
-    // Count unique metrics
-    const uniqueMetrics = new Set(measurements.map(m => m.metric))
-    const metricsCount = uniqueMetrics.size
-
-    // Build KPI calculation request
-    const kpiRequest = eligibleKPIs.length > 0 ? `
-
-MANDATORY: Calculate ALL ${eligibleKPIs.length} KPIs below. Do NOT skip any.
-
-KPIs TO CALCULATE:
-${eligibleKPIs.map((kpi, idx) => `${idx + 1}. ${kpi.id}: ${kpi.name} = ${kpi.f} [needs: ${kpi.m.join(', ')}]`).join('\n')}
-
-AVAILABLE METRIC VALUES:
-${Array.from(availableMetrics.entries()).map(([key, data]) => `${key} = ${data.value} ${data.unit}`).join('\n')}
-
-RETURN FORMAT (must include ALL ${eligibleKPIs.length} KPIs):
-{
-  "kpis": [
-    {"id": "kpi_id", "name": "KPI Name", "cat": "Category", "v": calculated_value, "u": "unit", "r": "optimal_range", "d": "description", "f": "formula", "m": ["metric1","metric2"]}
-  ]
-}
-` : ''
-
     // Call OpenAI
     const aiStartTime = Date.now()
+    const uniqueMetrics = new Set(measurements.map(m => m.metric))
+    const metricsCount = uniqueMetrics.size
     console.log(`Calling OpenAI for health analysis (${metricsCount} metrics, ${measurements.length} data points)...`)
     
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: csvData + kpiRequest }
+        { role: 'user', content: csvData }
       ],
       temperature: 0,  // Deterministic: always same output for same input
       response_format: { type: 'json_object' }
@@ -325,24 +259,25 @@ RETURN FORMAT (must include ALL ${eligibleKPIs.length} KPIs):
     }
 
     // Parse JSON response
-    const abbreviatedData = JSON.parse(responseText)
-    
-    // Extract KPIs if present
-    const calculatedKPIs = abbreviatedData.kpis || []
-    console.log(`Calculated ${calculatedKPIs.length} KPIs (expected: ${eligibleKPIs.length})`)
-    
-    // Warn if count mismatch
-    if (calculatedKPIs.length !== eligibleKPIs.length) {
-      console.warn(`⚠️ KPI count mismatch! Expected ${eligibleKPIs.length}, got ${calculatedKPIs.length}`)
-      const calculatedIds = new Set(calculatedKPIs.map((k: any) => k.id))
-      const missingKPIs = eligibleKPIs.filter(kpi => !calculatedIds.has(kpi.id))
-      if (missingKPIs.length > 0) {
-        console.warn(`Missing KPIs: ${missingKPIs.map(k => k.id).join(', ')}`)
-      }
+    let jsonResponse;
+    try {
+      jsonResponse = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error('Failed to parse OpenAI response as JSON');
+    }
+
+    // Validate with Zod
+    const validationResult = AnalysisSchema.safeParse(jsonResponse);
+
+    if (!validationResult.success) {
+      console.error('Schema validation failed:', validationResult.error);
+      // Fallback: try to use the raw JSON if possible, or throw
+      // For now, we'll throw to ensure we don't save bad data
+      throw new Error('AI response did not match expected schema');
     }
     
-    // Map abbreviated response to full schema
-    const analysisData = mapAbbreviatedResponse(abbreviatedData)
+    // Map abbreviated response to full schema using the validated data
+    const analysisData = mapAbbreviatedResponse(validationResult.data);
 
     // Store in database
     const { data: analysis, error: insertError } = await supabase
@@ -384,29 +319,8 @@ RETURN FORMAT (must include ALL ${eligibleKPIs.length} KPIs):
       return NextResponse.json({ error: 'Failed to save analysis' }, { status: 500 })
     }
 
-    // Store KPIs if calculated
-    if (calculatedKPIs.length > 0) {
-      const { error: kpiError } = await supabase
-        .from('health_kpis')
-        .insert({
-          user_id: user.id,
-          analysis_id: analysis.id,
-          metrics_count: metricsCount,
-          kpis: calculatedKPIs,
-          status: 'completed'
-        })
-      
-      if (kpiError) {
-        console.error('KPI insert error:', kpiError)
-        // Don't fail the whole request, just log
-      } else {
-        console.log(`Stored ${calculatedKPIs.length} KPIs in database`)
-      }
-    }
-
     const totalTime = Date.now() - startTime
     console.log(`Health analysis completed: ${analysis.id} (total: ${totalTime}ms, db: ${dbTime}ms, ai: ${aiTime}ms)`)
-    console.log(`KPI Summary: ${eligibleKPIs.length} eligible → ${calculatedKPIs.length} calculated ${calculatedKPIs.length === eligibleKPIs.length ? '✓' : '⚠️'}`)
 
     return NextResponse.json({
       analysis_id: analysis.id,

@@ -189,7 +189,7 @@ export default function AdminPage() {
               </div>
 
               {error && (
-                <div className="mt-2 rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300 backdrop-blur-xl">
+                <div className="mt-2 rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive backdrop-blur-xl">
                   {error}
                 </div>
               )}
@@ -328,7 +328,7 @@ export default function AdminPage() {
                                 <span className="text-[10px] text-green-400">✓ Email sent</span>
                               )}
                               {resetEmailStatus.status === 'error' && (
-                                <span className="text-[10px] text-red-400">✗ Failed</span>
+                                <span className="text-[10px] text-destructive">✗ Failed</span>
                               )}
                             </div>
                           ) : (

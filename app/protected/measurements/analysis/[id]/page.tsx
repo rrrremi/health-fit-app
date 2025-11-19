@@ -73,7 +73,7 @@ export default function AnalysisDetailPage() {
             </button>
           </Link>
         </div>
-        <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
           {error || 'Analysis not found'}
         </div>
       </section>
@@ -84,7 +84,7 @@ export default function AnalysisDetailPage() {
     switch (level) {
       case 'low': return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
       case 'moderate': return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
-      case 'high': return 'text-red-400 bg-red-500/10 border-red-500/20'
+      case 'high': return 'text-destructive bg-destructive/10 border-destructive/20'
       default: return 'text-white/70 bg-white/5 border-white/10'
     }
   }
@@ -211,7 +211,7 @@ export default function AnalysisDetailPage() {
                     {metric.valid ? (
                       <span className="text-xs text-emerald-400">✓</span>
                     ) : (
-                      <span className="text-xs text-red-400">✗</span>
+                      <span className="text-xs text-destructive">✗</span>
                     )}
                   </div>
                   <div className="text-xs text-white/70">

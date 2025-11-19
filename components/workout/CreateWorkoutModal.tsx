@@ -131,7 +131,7 @@ export default function CreateWorkoutModal({ isOpen, onClose, onSuccess }: Creat
             {/* Workout Name */}
             <div>
               <label className="block text-xs text-white/70 mb-1.5 font-light">
-                Workout Name <span className="text-red-400">*</span>
+                Workout Name <span className="text-destructive">*</span>
               </label>
               <input
                 type="text"
@@ -187,7 +187,7 @@ export default function CreateWorkoutModal({ isOpen, onClose, onSuccess }: Creat
                         </div>
                         <button
                           onClick={() => handleRemoveExercise(index)}
-                          className="rounded-md p-1 text-red-400 hover:bg-red-500/20 transition-colors"
+                          className="rounded-md p-1 text-destructive hover:bg-destructive/20 transition-colors"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
@@ -237,7 +237,7 @@ export default function CreateWorkoutModal({ isOpen, onClose, onSuccess }: Creat
 
             {/* Error Message */}
             {error && (
-              <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-300">
+              <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
                 {error}
               </div>
             )}

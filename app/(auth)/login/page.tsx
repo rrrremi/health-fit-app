@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useAuth } from '@/components/auth/AuthProvider'
+import { toast } from 'sonner'
 
 export default function Login() {
-  const router = useRouter()
+  const { signIn, loading: authLoading } = useAuth()
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -27,22 +28,19 @@ export default function Login() {
     setLoading(true)
 
     try {
-      // In a real app, this would be an actual authentication API call
-      // For demo purposes, we'll simulate a successful login with any credentials
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Store some auth state in localStorage (in a real app, use secure cookies or tokens)
-      localStorage.setItem('isAuthenticated', 'true')
-      localStorage.setItem('user', JSON.stringify({
-        name: 'Demo User',
-        email: formData.email,
-        role: 'user'
-      }))
-      
-      router.push('/protected')
-    } catch (err) {
+      const { error } = await signIn(formData.email, formData.password)
+
+      if (error) {
+        setError(error.message)
+        toast.error('Login failed', { description: error.message })
+      } else {
+        toast.success('Welcome back!', { description: 'You have been logged in successfully.' })
+        // AuthProvider will handle the redirect automatically
+      }
+    } catch (err: any) {
       setError('An unexpected error occurred')
-      console.error(err)
+      toast.error('Login failed', { description: 'Please try again.' })
+      console.error('Login error:', err)
     } finally {
       setLoading(false)
     }
@@ -99,7 +97,7 @@ export default function Login() {
           </div>
 
           {error && (
-            <div className="p-2 rounded-md bg-red-500/10 border border-red-500/20 text-red-200 text-xs font-light">
+            <div className="p-2 rounded-md bg-destructive/10 border border-destructive/20 text-destructive text-xs font-light">
               {error}
             </div>
           )}
