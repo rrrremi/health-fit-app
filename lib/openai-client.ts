@@ -8,6 +8,7 @@ let openaiInstance: OpenAI | null = null;
 /**
  * Get the singleton OpenAI client instance
  * Ensures consistent configuration across the application
+ * Note: This will throw at runtime if OPENAI_API_KEY is not set, but allows builds to succeed
  */
 export function getOpenAIClient(): OpenAI {
   if (!openaiInstance) {
@@ -28,5 +29,6 @@ export function getOpenAIClient(): OpenAI {
   return openaiInstance;
 }
 
-// Export the client for direct usage in modules that need it
-export const openai = getOpenAIClient();
+// Don't export a pre-initialized client - this allows builds to succeed without API key
+// Export the getter function instead
+export default getOpenAIClient;
