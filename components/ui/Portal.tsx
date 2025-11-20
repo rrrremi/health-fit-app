@@ -75,23 +75,65 @@ export default function Portal({
     return () => document.removeEventListener('keydown', handleEscape)
   }, [isOpen, closeOnEscape, onClose])
 
-  // Handle outside clicks
+  // Handle touch events to prevent page scrolling when scrolling inside portal
   useEffect(() => {
-    if (!isOpen || !closeOnOutsideClick) return
+    if (!isOpen) return
 
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element
-      const isOutsideTrigger = triggerRef.current && !triggerRef.current.contains(target)
-      const isOutsidePortal = !target.closest('[data-portal-content]')
+    let isScrolling = false
+    let startY = 0
+    let startX = 0
 
-      if (isOutsideTrigger && isOutsidePortal) {
-        onClose?.()
+    const handleTouchStart = (e: TouchEvent) => {
+      const target = e.target as Element
+      const portalContent = target.closest('[data-portal-content]')
+
+      if (portalContent) {
+        isScrolling = false
+        startY = e.touches[0].clientY
+        startX = e.touches[0].clientX
+
+        // Check if the target is scrollable
+        const scrollableElement = target.closest('[data-scrollable]')
+        if (scrollableElement) {
+          const element = scrollableElement as HTMLElement
+          const canScrollVertically = element.scrollHeight > element.clientHeight
+          const canScrollHorizontally = element.scrollWidth > element.clientWidth
+
+          if (canScrollVertically || canScrollHorizontally) {
+            isScrolling = true
+          }
+        }
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen, closeOnOutsideClick, onClose, triggerRef])
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isScrolling) return
+
+      const deltaY = Math.abs(e.touches[0].clientY - startY)
+      const deltaX = Math.abs(e.touches[0].clientX - startX)
+
+      // If scrolling vertically more than horizontally, prevent page scroll
+      if (deltaY > deltaX) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+
+    const handleTouchEnd = () => {
+      isScrolling = false
+    }
+
+    // Add touch listeners to document to catch all touch events
+    document.addEventListener('touchstart', handleTouchStart, { passive: false })
+    document.addEventListener('touchmove', handleTouchMove, { passive: false })
+    document.addEventListener('touchend', handleTouchEnd, { passive: false })
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart)
+      document.removeEventListener('touchmove', handleTouchMove)
+      document.removeEventListener('touchend', handleTouchEnd)
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 

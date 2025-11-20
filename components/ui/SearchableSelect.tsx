@@ -173,7 +173,7 @@ export default function SearchableSelect({
           </div>
 
           {/* Options */}
-          <div className="max-h-48 overflow-y-auto">
+          <div className="max-h-48 overflow-y-auto" data-scrollable>
             {Object.keys(groupedOptions).length > 0 ? (
               Object.entries(groupedOptions).map(([category, categoryOptions]) => (
                 <div key={category}>
