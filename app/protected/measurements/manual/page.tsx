@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Upload, ChevronLeft, Camera, FileImage, Loader2, CheckCircle, AlertCircle, Plus, Trash2, Save } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import SearchableSelect from '@/components/ui/SearchableSelect'
 
 interface MetricCatalog {
   key: string
@@ -36,6 +37,38 @@ export default function ManualEntryPage() {
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
+
+  // Helper function to format metrics for SearchableSelect
+  const formatMetricsForSelect = (metrics: MetricCatalog[]) => {
+    return metrics.map(metric => ({
+      value: metric.key,
+      label: metric.display_name,
+      category: metric.category
+    }))
+  }
+
+  // Category display names for better UX
+  const categoryLabels: Record<string, string> = {
+    composition: 'Body Composition',
+    blood_lipids: 'Cholesterol & Lipids',
+    blood_sugar: 'Blood Sugar',
+    blood_cells: 'Blood Cells',
+    vitals: 'Vitals',
+    liver: 'Liver Function',
+    kidney: 'Kidney Function',
+    thyroid: 'Thyroid',
+    vitamins: 'Vitamins & Minerals',
+    segmental_lean: 'Lean Mass (Segments)',
+    segmental_fat: 'Fat Mass (Segments)',
+    water: 'Body Water',
+    obesity: 'Obesity Metrics',
+    control: 'Control Targets',
+    energy: 'Energy & Caloric',
+    targets: 'Body Targets',
+    performance: 'Performance Scores',
+    segmental_analysis: 'Segment Analysis',
+    impedance: 'Impedance (Advanced)'
+  }
 
   useEffect(() => {
     fetchMetrics()
@@ -263,50 +296,47 @@ export default function ManualEntryPage() {
             {measurements.map((measurement, index) => (
               <div
                 key={index}
-                className="flex items-center gap-2 rounded-lg bg-white/5 p-2 hover:bg-white/10 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg bg-white/5 p-3 hover:bg-white/10 transition-colors"
               >
-                {/* Metric Selector - Simple */}
-                <select
-                  value={measurement.metric}
-                  onChange={(e) => updateMeasurement(index, 'metric', e.target.value)}
-                  className="flex-1 rounded-md bg-white/10 backdrop-blur-xl border border-white/20 px-2 py-1.5 text-xs text-white hover:border-white/30 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-fuchsia-400/40 cursor-pointer"
-                  style={{ colorScheme: 'dark' }}
-                >
-                  {metrics.map((metric) => (
-                    <option 
-                      key={metric.key} 
-                      value={metric.key}
-                      className="bg-slate-800 text-white hover:bg-slate-700"
-                    >
-                      {metric.display_name}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Value Input - Compact */}
-                <input
-                  type="number"
-                  step="0.1"
-                  value={measurement.value}
-                  onChange={(e) => updateMeasurement(index, 'value', e.target.value)}
-                  placeholder="0.0"
-                  className="w-20 rounded-md bg-white/10 backdrop-blur-xl px-2 py-1.5 text-xs text-white placeholder-white/40 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-fuchsia-400/40"
-                />
-
-                {/* Unit Display - Compact */}
-                <div className="w-12 rounded-md bg-white/5 px-2 py-1.5 text-xs text-white/60 text-center">
-                  {measurement.unit}
+                {/* Metric Selector - Searchable with Categories */}
+                <div className="flex-1">
+                  <SearchableSelect
+                    options={formatMetricsForSelect(metrics)}
+                    value={measurement.metric}
+                    onChange={(value) => updateMeasurement(index, 'metric', value)}
+                    placeholder="Select metric"
+                    className="w-full"
+                  />
                 </div>
 
-                {/* Delete Button */}
-                {measurements.length > 1 && (
-                  <button
-                    onClick={() => removeMeasurement(index)}
-                    className="p-1.5 rounded-md bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                )}
+                {/* Value and Unit Row */}
+                <div className="flex items-center gap-2">
+                  {/* Value Input - Better mobile sizing */}
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={measurement.value}
+                    onChange={(e) => updateMeasurement(index, 'value', e.target.value)}
+                    placeholder="0.0"
+                    className="w-20 sm:w-24 rounded-md bg-white/10 backdrop-blur-xl px-3 py-2 text-sm text-white placeholder-white/40 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-fuchsia-400/40"
+                  />
+
+                  {/* Unit Display - Better mobile sizing */}
+                  <div className="w-14 sm:w-16 rounded-md bg-white/5 px-3 py-2 text-sm text-white/60 text-center">
+                    {measurement.unit}
+                  </div>
+
+                  {/* Delete Button - Better touch target */}
+                  {measurements.length > 1 && (
+                    <button
+                      onClick={() => removeMeasurement(index)}
+                      className="p-2 rounded-md bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
+                      title="Remove measurement"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
