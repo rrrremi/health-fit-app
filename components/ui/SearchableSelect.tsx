@@ -133,22 +133,22 @@ export default function SearchableSelect({
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
-        className="flex-1 rounded-md bg-white/10 backdrop-blur-xl border border-white/20 px-3 py-2 text-sm text-white hover:border-white/30 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-fuchsia-400/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
+        className="flex-1 rounded-lg bg-white/10 backdrop-blur-xl border border-white/20 px-3 py-2 text-sm text-white hover:border-white/30 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-fuchsia-400/40 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between transition-colors"
         onKeyDown={handleKeyDown}
       >
         <span className={selectedOption ? 'text-white' : 'text-white/60'}>
           {selectedOption?.label || placeholder}
         </span>
-        <ChevronDown className={`h-4 w-4 text-white/60 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-4 w-4 text-white/60 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-700 rounded-md shadow-lg max-h-60 overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-white/5 backdrop-blur-2xl border border-white/10 rounded-lg shadow-2xl max-h-60 overflow-hidden">
           {/* Search Input */}
-          <div className="p-2 border-b border-slate-700">
+          <div className="p-2 border-b border-white/10">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40" />
               <input
                 ref={inputRef}
                 type="text"
@@ -156,13 +156,13 @@ export default function SearchableSelect({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Search metrics..."
-                className="w-full pl-8 pr-8 py-2 bg-slate-700 border border-slate-600 rounded text-white placeholder-slate-400 text-sm focus:outline-none focus:border-slate-500"
+                className="w-full pl-8 pr-8 py-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-md text-white placeholder-white/40 text-sm focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-fuchsia-400/40"
               />
               {searchTerm && (
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -176,7 +176,7 @@ export default function SearchableSelect({
               Object.entries(groupedOptions).map(([category, categoryOptions]) => (
                 <div key={category}>
                   {category !== 'Other' && (
-                    <div className="px-3 py-2 text-xs font-semibold text-slate-300 bg-slate-700/50 uppercase tracking-wide">
+                    <div className="px-3 py-2 text-xs font-semibold text-white/70 bg-white/5 uppercase tracking-wide">
                       {category.replace(/_/g, ' ')}
                     </div>
                   )}
@@ -189,8 +189,8 @@ export default function SearchableSelect({
                         key={option.value}
                         type="button"
                         onClick={() => handleSelect(option.value)}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-600 focus:bg-slate-600 focus:outline-none ${
-                          globalIndex === highlightedIndex ? 'bg-slate-600' : ''
+                        className={`w-full text-left px-3 py-2 text-sm hover:bg-white/10 focus:bg-white/10 focus:outline-none transition-colors ${
+                          globalIndex === highlightedIndex ? 'bg-white/10' : ''
                         } ${option.value === value ? 'bg-fuchsia-500/20 text-fuchsia-300' : 'text-white'}`}
                       >
                         {option.label}
@@ -200,7 +200,7 @@ export default function SearchableSelect({
                 </div>
               ))
             ) : (
-              <div className="px-3 py-4 text-sm text-slate-400 text-center">
+              <div className="px-3 py-4 text-sm text-white/40 text-center">
                 No metrics found
               </div>
             )}
