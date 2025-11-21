@@ -62,11 +62,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         // Handle auth state changes
         if (event === 'SIGNED_IN') {
-          // User signed in, redirect to protected area
-          router.push('/protected/workouts');
+          // User signed in - let middleware handle redirects
+          console.log('User signed in:', session?.user?.email)
         } else if (event === 'SIGNED_OUT') {
           // User signed out, redirect to home
-          router.push('/');
+          router.push('/')
         }
       }
     );

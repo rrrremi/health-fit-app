@@ -74,7 +74,7 @@ export async function middleware(request: NextRequest) {
       .single()
     
     if (!profile?.is_admin) {
-      return NextResponse.redirect(new URL('/protected/dashboard', request.url))
+      return NextResponse.redirect(new URL('/protected/workouts', request.url))
     }
   }
   
