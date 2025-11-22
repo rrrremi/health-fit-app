@@ -25,7 +25,7 @@ export function MetricCard({ metric }: MetricCardProps) {
             {/* Left: Metric Name and Change */}
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-1.5">
-                <p className="text-[20px] text-white/60 uppercase tracking-wide font-medium truncate leading-tight">
+                <p className="text-[14px] text-white/97 uppercase tracking-wide font-normal truncate leading-tight">
                   {metric.display_name}
                 </p>
                 {metric.source === 'ocr' && metric.confidence !== null && (
