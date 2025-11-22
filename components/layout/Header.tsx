@@ -29,13 +29,27 @@ export default function Header() {
 
   // Update admin status when user changes
   useEffect(() => {
-    if (user) {
-      // Check if user is admin (you might want to move this to AuthProvider)
-      // For now, we'll keep it simple and not check admin status
-      setIsAdmin(false)
-    } else {
-      setIsAdmin(false)
+    const checkAdminStatus = async () => {
+      if (user) {
+        try {
+          const supabase = (await import('@/lib/supabase/client')).createClient()
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', user.id)
+            .single()
+          
+          setIsAdmin(profile?.is_admin || false)
+        } catch (error) {
+          console.error('Error checking admin status:', error)
+          setIsAdmin(false)
+        }
+      } else {
+        setIsAdmin(false)
+      }
     }
+    
+    checkAdminStatus()
   }, [user])
 
   const handleSignOut = async () => {

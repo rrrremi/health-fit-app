@@ -4,21 +4,13 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Upload, ChevronLeft, Camera, FileImage, Loader2, CheckCircle, AlertCircle, Plus, Trash2, Save } from 'lucide-react'
+import { ChevronLeft, Loader2, CheckCircle, Plus, Trash2, Save } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import SearchableSelect from '@/components/ui/SearchableSelect'
-
-interface MetricCatalog {
-  key: string
-  display_name: string
-  unit: string
-  category: string
-  min_value: number | null
-  max_value: number | null
-}
+import MetricPicker, { MetricCatalog } from '@/components/measurements/MetricPicker'
 
 interface ManualMeasurement {
   metric: string
+  displayName: string
   value: string
   unit: string
 }
@@ -26,9 +18,7 @@ interface ManualMeasurement {
 export default function ManualEntryPage() {
   const router = useRouter()
   const [metrics, setMetrics] = useState<MetricCatalog[]>([])
-  const [measurements, setMeasurements] = useState<ManualMeasurement[]>([
-    { metric: 'weight', value: '', unit: 'kg' }
-  ])
+  const [measurements, setMeasurements] = useState<ManualMeasurement[]>([])
   const [measurementDate, setMeasurementDate] = useState<string>(
     new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
   )
@@ -36,39 +26,12 @@ export default function ManualEntryPage() {
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showMetricPicker, setShowMetricPicker] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<Record<number, string | null>>({})
   const supabase = createClient()
 
-  // Helper function to format metrics for SearchableSelect
-  const formatMetricsForSelect = (metrics: MetricCatalog[]) => {
-    return metrics.map(metric => ({
-      value: metric.key,
-      label: metric.display_name,
-      category: metric.category
-    }))
-  }
-
-  // Category display names for better UX
-  const categoryLabels: Record<string, string> = {
-    composition: 'Body Composition',
-    blood_lipids: 'Cholesterol & Lipids',
-    blood_sugar: 'Blood Sugar',
-    blood_cells: 'Blood Cells',
-    vitals: 'Vitals',
-    liver: 'Liver Function',
-    kidney: 'Kidney Function',
-    thyroid: 'Thyroid',
-    vitamins: 'Vitamins & Minerals',
-    segmental_lean: 'Lean Mass (Segments)',
-    segmental_fat: 'Fat Mass (Segments)',
-    water: 'Body Water',
-    obesity: 'Obesity Metrics',
-    control: 'Control Targets',
-    energy: 'Energy & Caloric',
-    targets: 'Body Targets',
-    performance: 'Performance Scores',
-    segmental_analysis: 'Segment Analysis',
-    impedance: 'Impedance (Advanced)'
-  }
+  // Get array of selected metric keys for MetricPicker
+  const selectedMetricKeys = measurements.map(m => m.metric)
 
   useEffect(() => {
     fetchMetrics()
@@ -91,59 +54,80 @@ export default function ManualEntryPage() {
     }
   }
 
-  const addMeasurement = () => {
-    // Find first unused metric
-    const usedMetrics = measurements.map(m => m.metric)
-    const availableMetric = metrics.find(m => !usedMetrics.includes(m.key))
+  const handleMetricSelected = (metric: MetricCatalog) => {
+    // Check if already added (shouldn't happen due to MetricPicker filtering)
+    if (measurements.some(m => m.metric === metric.key)) return
     
-    if (availableMetric) {
-      setMeasurements([...measurements, {
-        metric: availableMetric.key,
-        value: '',
-        unit: availableMetric.unit
-      }])
-    }
+    // Add to measurements list
+    setMeasurements(prev => [...prev, {
+      metric: metric.key,
+      displayName: metric.display_name,
+      value: '',
+      unit: metric.unit
+    }])
   }
 
   const removeMeasurement = (index: number) => {
     setMeasurements(measurements.filter((_, i) => i !== index))
   }
 
-  const updateMeasurement = (index: number, field: keyof ManualMeasurement, value: string) => {
+  const updateMeasurementValue = (index: number, value: string) => {
     const updated = [...measurements]
-    updated[index] = { ...updated[index], [field]: value }
+    updated[index] = { ...updated[index], value }
+    setMeasurements(updated)
     
-    // Update unit when metric changes
-    if (field === 'metric') {
-      const metric = metrics.find(m => m.key === value)
-      if (metric) {
-        updated[index].unit = metric.unit
+    // Clear validation error when user starts typing
+    if (validationErrors[index]) {
+      setValidationErrors(prev => ({ ...prev, [index]: null }))
+    }
+  }
+
+  const validateField = (index: number): string | null => {
+    const measurement = measurements[index]
+    const metric = metrics.find(m => m.key === measurement.metric)
+    
+    if (!measurement.value || measurement.value.trim() === '') {
+      return 'Required'
+    }
+    
+    const numValue = parseFloat(measurement.value)
+    if (isNaN(numValue)) {
+      return 'Must be a number'
+    }
+    
+    if (metric) {
+      if (metric.min_value !== null && numValue < metric.min_value) {
+        return `Min: ${metric.min_value}`
+      }
+      if (metric.max_value !== null && numValue > metric.max_value) {
+        return `Max: ${metric.max_value}`
       }
     }
     
-    setMeasurements(updated)
+    return null
+  }
+
+  const handleValueBlur = (index: number) => {
+    const error = validateField(index)
+    setValidationErrors(prev => ({ ...prev, [index]: error }))
   }
 
   const validateMeasurements = (): string | null => {
-    for (const measurement of measurements) {
-      if (!measurement.value || measurement.value.trim() === '') {
-        return 'Please fill in all measurement values'
-      }
+    // Validate all fields and collect errors
+    const errors: Record<number, string | null> = {}
+    let hasErrors = false
 
-      const value = parseFloat(measurement.value)
-      if (isNaN(value)) {
-        return 'All values must be valid numbers'
+    measurements.forEach((measurement, index) => {
+      const error = validateField(index)
+      if (error) {
+        errors[index] = error
+        hasErrors = true
       }
+    })
 
-      const metric = metrics.find(m => m.key === measurement.metric)
-      if (metric) {
-        if (metric.min_value !== null && value < metric.min_value) {
-          return `${metric.display_name} must be at least ${metric.min_value}`
-        }
-        if (metric.max_value !== null && value > metric.max_value) {
-          return `${metric.display_name} must be at most ${metric.max_value}`
-        }
-      }
+    if (hasErrors) {
+      setValidationErrors(errors)
+      return 'Please fix validation errors before saving'
     }
 
     return null
@@ -284,50 +268,75 @@ export default function ManualEntryPage() {
         <p className="text-xs text-white/50 mt-1">When were these measurements taken?</p>
       </motion.div>
 
-      {/* Measurements Form - Compact Container */}
+      {/* Selected Metrics List */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.15 }}
         className="relative overflow-hidden rounded-lg border border-white/10 bg-white/5 backdrop-blur-2xl mb-4"
       >
-        <div className="p-3">
-          <div className="space-y-2">
-            {measurements.map((measurement, index) => (
-              <div
-                key={index}
-                className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg bg-white/5 p-3 hover:bg-white/10 transition-colors"
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-white/90">Selected Metrics ({measurements.length})</h3>
+          </div>
+
+          {measurements.length === 0 ? (
+            <div className="text-center py-8 text-white/40 text-sm">
+              <p className="mb-3">No metrics selected yet</p>
+              <button
+                onClick={() => setShowMetricPicker(true)}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white/90 hover:bg-white/15 transition-colors"
               >
-                {/* Metric Selector - Searchable with Categories */}
-                <div className="flex-1">
-                  <SearchableSelect
-                    options={formatMetricsForSelect(metrics)}
-                    value={measurement.metric}
-                    onChange={(value) => updateMeasurement(index, 'metric', value)}
-                    placeholder="Select metric"
-                    className="w-full"
-                  />
-                </div>
-
-                {/* Value and Unit Row */}
-                <div className="flex items-center gap-2">
-                  {/* Value Input - Better mobile sizing */}
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={measurement.value}
-                    onChange={(e) => updateMeasurement(index, 'value', e.target.value)}
-                    placeholder="0.0"
-                    className="w-20 sm:w-24 rounded-md bg-white/10 backdrop-blur-xl px-3 py-2 text-sm text-white placeholder-white/40 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-fuchsia-400/40"
-                  />
-
-                  {/* Unit Display - Better mobile sizing */}
-                  <div className="w-14 sm:w-16 rounded-md bg-white/5 px-3 py-2 text-sm text-white/60 text-center">
-                    {measurement.unit}
+                <Plus className="h-4 w-4" />
+                Add Your First Metric
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {measurements.map((measurement, index) => (
+                <div
+                  key={index}
+                  className="flex flex-col sm:flex-row sm:items-start gap-3 rounded-lg bg-white/5 p-3 hover:bg-white/10 transition-colors"
+                >
+                  {/* Metric Name (Read-only) */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-white/90 truncate">
+                      {measurement.displayName}
+                    </div>
+                    <div className="text-xs text-white/50 mt-0.5">
+                      Unit: {measurement.unit}
+                    </div>
                   </div>
 
-                  {/* Delete Button - Better touch target */}
-                  {measurements.length > 1 && (
+                  {/* Value Input with Validation */}
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={measurement.value}
+                        onChange={(e) => updateMeasurementValue(index, e.target.value)}
+                        onBlur={() => handleValueBlur(index)}
+                        placeholder="0.0"
+                        className={`w-24 rounded-md backdrop-blur-xl px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-1 transition-colors ${
+                          validationErrors[index]
+                            ? 'bg-red-500/10 border-2 border-red-500 focus:ring-red-500/40'
+                            : 'bg-white/10 border border-white/20 focus:bg-white/15 focus:ring-fuchsia-400/40'
+                        }`}
+                      />
+                      {validationErrors[index] && (
+                        <div className="absolute top-full left-0 mt-1 text-xs text-red-300 whitespace-nowrap">
+                          {validationErrors[index]}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Unit Display */}
+                    <div className="w-16 rounded-md bg-white/5 px-3 py-2 text-sm text-white/60 text-center">
+                      {measurement.unit}
+                    </div>
+
+                    {/* Delete Button */}
                     <button
                       onClick={() => removeMeasurement(index)}
                       className="p-2 rounded-md bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors"
@@ -335,20 +344,19 @@ export default function ManualEntryPage() {
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
-                  )}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-          {/* Add Measurement Button - Inside Container */}
-          {measurements.length < metrics.length && (
-            <button
-              onClick={addMeasurement}
-              className="w-full mt-2 rounded-md border border-white/10 bg-white/5 p-2 text-xs text-white/70 hover:bg-white/10 hover:text-white/90 transition-colors flex items-center justify-center gap-1.5"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Another Measurement
-            </button>
+              ))}
+
+              {/* Add Another Metric Button */}
+              <button
+                onClick={() => setShowMetricPicker(true)}
+                className="w-full mt-2 rounded-md border border-white/10 bg-white/5 p-2.5 text-sm text-white/70 hover:bg-white/10 hover:text-white/90 transition-colors flex items-center justify-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Another Metric
+              </button>
+            </div>
           )}
         </div>
       </motion.div>
@@ -378,6 +386,15 @@ export default function ManualEntryPage() {
           )}
         </button>
       </div>
+
+      {/* Metric Picker Side Panel */}
+      <MetricPicker
+        isOpen={showMetricPicker}
+        onClose={() => setShowMetricPicker(false)}
+        onMetricSelected={handleMetricSelected}
+        metrics={metrics}
+        selectedMetricKeys={selectedMetricKeys}
+      />
     </section>
   )
 }

@@ -438,7 +438,7 @@ export default function AdminMetricsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10">
-                  <th className="text-left p-3 text-xs font-medium text-white/70">
+                  <th className="text-left px-2 py-2 text-[10px] font-medium text-white/70">
                     <button
                       onClick={() => handleSort('key')}
                       className="flex items-center gap-1 hover:text-white transition-colors"
@@ -447,16 +447,16 @@ export default function AdminMetricsPage() {
                       <SortIcon field="key" />
                     </button>
                   </th>
-                  <th className="text-left p-3 text-xs font-medium text-white/70">
+                  <th className="text-left px-2 py-2 text-[10px] font-medium text-white/70">
                     <button
                       onClick={() => handleSort('display_name')}
                       className="flex items-center gap-1 hover:text-white transition-colors"
                     >
-                      Display Name
+                      Name
                       <SortIcon field="display_name" />
                     </button>
                   </th>
-                  <th className="text-left p-3 text-xs font-medium text-white/70">
+                  <th className="text-left px-2 py-2 text-[10px] font-medium text-white/70">
                     <button
                       onClick={() => handleSort('unit')}
                       className="flex items-center gap-1 hover:text-white transition-colors"
@@ -465,19 +465,19 @@ export default function AdminMetricsPage() {
                       <SortIcon field="unit" />
                     </button>
                   </th>
-                  <th className="text-left p-3 text-xs font-medium text-white/70">
+                  <th className="text-left px-2 py-2 text-[10px] font-medium text-white/70">
                     <button
                       onClick={() => handleSort('category')}
                       className="flex items-center gap-1 hover:text-white transition-colors"
                     >
-                      Category
+                      Cat.
                       <SortIcon field="category" />
                     </button>
                   </th>
-                  <th className="text-left p-3 text-xs font-medium text-white/70">Range</th>
-                  <th className="text-center p-3 text-xs font-medium text-white/70">Male Healthy</th>
-                  <th className="text-center p-3 text-xs font-medium text-white/70">Female Healthy</th>
-                  <th className="text-left p-3 text-xs font-medium text-white/70">
+                  <th className="text-left px-2 py-2 text-[10px] font-medium text-white/70">Range</th>
+                  <th className="text-center px-2 py-2 text-[10px] font-medium text-white/70">Male</th>
+                  <th className="text-center px-2 py-2 text-[10px] font-medium text-white/70">Female</th>
+                  <th className="text-left px-2 py-2 text-[10px] font-medium text-white/70">
                     <button
                       onClick={() => handleSort('sort_order')}
                       className="flex items-center gap-1 hover:text-white transition-colors"
@@ -486,51 +486,53 @@ export default function AdminMetricsPage() {
                       <SortIcon field="sort_order" />
                     </button>
                   </th>
-                  <th className="text-right p-3 text-xs font-medium text-white/70">Actions</th>
+                  <th className="text-right px-2 py-2 text-[10px] font-medium text-white/70">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredMetrics.map((metric) => (
                   <tr key={metric.key} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <td className="p-3 text-sm text-white/90 font-mono">{metric.key}</td>
-                    <td className="p-3 text-sm text-white">{metric.display_name}</td>
-                    <td className="p-3 text-sm text-white/70">{metric.unit}</td>
-                    <td className="p-3 text-xs">
-                      <span className="px-2 py-1 rounded bg-white/10 text-white/70">
+                    <td className="px-2 py-2 text-[10px] text-white/90 font-mono">{metric.key}</td>
+                    <td className="px-2 py-2 text-[11px] text-white">{metric.display_name}</td>
+                    <td className="px-2 py-2 text-[10px] text-white/70">{metric.unit}</td>
+                    <td className="px-2 py-2 text-[10px]">
+                      <span className="px-1.5 py-0.5 rounded bg-white/10 text-white/70">
                         {metric.category}
                       </span>
                     </td>
-                    <td className="p-3 text-xs text-white/60">
+                    <td className="px-2 py-2 text-[10px] text-white/60">
                       {metric.min_value !== null && metric.max_value !== null
                         ? `${metric.min_value} - ${metric.max_value}`
                         : '—'}
                     </td>
-                    <td className="p-3 text-xs text-center">
+                    <td className="px-2 py-2 text-[10px] text-center">
                       <div className="text-emerald-400">
                         {metric.healthy_min_male !== null && metric.healthy_max_male !== null
                           ? `${metric.healthy_min_male} - ${metric.healthy_max_male}`
                           : '—'}
                       </div>
                     </td>
-                    <td className="p-3 text-xs text-center">
+                    <td className="px-2 py-2 text-[10px] text-center">
                       <div className="text-blue-400">
                         {metric.healthy_min_female !== null && metric.healthy_max_female !== null
                           ? `${metric.healthy_min_female} - ${metric.healthy_max_female}`
                           : '—'}
                       </div>
                     </td>
-                    <td className="p-3 text-sm text-white/60">{metric.sort_order}</td>
-                    <td className="p-3">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-2 py-2 text-[10px] text-white/60">{metric.sort_order}</td>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center justify-end gap-1">
                         <button
                           onClick={() => handleEdit(metric)}
-                          className="p-1.5 rounded bg-white/10 text-white/60 hover:bg-white/20 transition-colors"
+                          className="p-1.5 rounded bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition-colors"
+                          title="Edit metric"
                         >
                           <Edit className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => setDeleteKey(metric.key)}
-                          className="p-1.5 rounded bg-destructive/20 text-destructive hover:bg-destructive/30 transition-colors"
+                          className="p-1.5 rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors"
+                          title="Delete metric"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
