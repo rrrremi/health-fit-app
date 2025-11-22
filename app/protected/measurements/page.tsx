@@ -202,20 +202,20 @@ function MeasurementsPageContent() {
           <button
             onClick={handleGenerateAnalysis}
             disabled={isGeneratingAnalysis || !hasMetrics}
-            className="flex items-center gap-1 rounded-md border border-transparent bg-white/5 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-1 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Activity className="h-3 w-3" />
+            <Activity className="h-3.5 w-3.5" />
             {isGeneratingAnalysis ? 'Analyzing...' : 'Analysis'}
           </button>
           <Link href="/protected/measurements/upload">
-            <button className="flex items-center gap-1 rounded-md border border-transparent bg-white/5 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">
-              <Upload className="h-3 w-3" />
+            <button className="flex items-center gap-1 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">
+              <Upload className="h-3.5 w-3.5" />
               Upload
             </button>
           </Link>
           <Link href="/protected/measurements/manual">
-            <button className="flex items-center gap-1 rounded-md border border-transparent bg-white/5 px-2.5 py-1 text-[11px] text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">
-              <Plus className="h-3 w-3" />
+            <button className="flex items-center gap-1 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">
+              <Plus className="h-3.5 w-3.5" />
               Manual
             </button>
           </Link>
@@ -229,13 +229,15 @@ function MeasurementsPageContent() {
         className="space-y-2"
       >
         {/* Title */}
-        <div className="relative overflow-hidden rounded-md border border-transparent bg-white/5 p-2.5 backdrop-blur-2xl">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Scale className="h-4 w-4 text-white/70" />
+        <div className="relative overflow-hidden rounded-lg border border-transparent bg-white/5 p-3 backdrop-blur-2xl">
+          <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/10 blur-2xl opacity-50" />
+          <div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-white/10 blur-2xl opacity-50" />
+          
+          <div className="relative">
+            <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-lg font-semibold leading-tight">Your Measurements</h1>
-                <p className="text-[11px] text-white/60 leading-tight">Track your body composition and health metrics</p>
+                <h1 className="text-xl font-semibold tracking-tight">Your Measurements</h1>
+                <p className="mt-0.5 text-xs text-white/70">Track your body composition and health metrics</p>
               </div>
             </div>
           </div>
@@ -263,13 +265,13 @@ function MeasurementsPageContent() {
                   {/* Search and filter buttons */}
                   <div className="flex items-center gap-1.5">
                     <div className="relative flex-1 sm:flex-initial">
-                      <Search className="absolute left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 text-white/40" />
+                      <Search className="absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-white/40" />
                       <input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         placeholder="Search metrics"
-                        className="w-full sm:w-32 md:w-40 rounded border border-white/20 bg-white/10 py-1 pl-5 pr-2 text-[11px] font-light text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none backdrop-blur-xl"
+                        className="w-full sm:w-32 md:w-40 rounded-md border border-white/20 bg-white/10 py-1 pl-8 pr-2 text-xs font-light text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none backdrop-blur-xl"
                       />
                     </div>
                     {hasActiveFilters && (

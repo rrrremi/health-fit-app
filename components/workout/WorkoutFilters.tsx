@@ -62,7 +62,7 @@ export default function WorkoutFilters({
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search"
-              className="w-28 rounded-md border border-white/20 bg-white/10 py-1 pl-6 pr-2 text-xs font-light text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none backdrop-blur-xl"
+              className="w-32 md:w-40 rounded-md border border-white/20 bg-white/10 py-1 pl-8 pr-2 text-xs font-light text-white/90 placeholder-white/40 focus:border-white/40 focus:outline-none backdrop-blur-xl"
             />
           </div>
           {hasActiveFilters && (
