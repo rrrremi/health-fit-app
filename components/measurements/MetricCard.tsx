@@ -53,7 +53,7 @@ export function MetricCard({ metric }: MetricCardProps) {
                   </p>
                 </div>
                 {metric.sparkline_points.length > 0 && (
-                  <div className="w-20 h-8 sm:hidden flex-shrink-0">
+                  <div className="w-28 h-10 sm:hidden flex-shrink-0">
                     <Sparkline
                       data={metric.sparkline_points}
                       color="#fff"
@@ -63,7 +63,7 @@ export function MetricCard({ metric }: MetricCardProps) {
                 )}
               </div>
               {metric.sparkline_points.length > 0 && (
-                <div className="hidden sm:block w-24 h-9 flex-shrink-0">
+                <div className="hidden sm:block w-28 h-10 flex-shrink-0">
                   <Sparkline
                     data={metric.sparkline_points}
                     color="#fff"
