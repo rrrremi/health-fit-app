@@ -25,7 +25,7 @@ export function MetricCard({ metric }: MetricCardProps) {
             {/* Left: Metric Name and Change */}
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-1.5">
-                <p className="text-[10px] text-white/60 uppercase tracking-wide font-medium truncate leading-tight">
+                <p className="text-[20px] text-white/60 uppercase tracking-wide font-medium truncate leading-tight">
                   {metric.display_name}
                 </p>
                 {metric.source === 'ocr' && metric.confidence !== null && (
@@ -44,10 +44,10 @@ export function MetricCard({ metric }: MetricCardProps) {
             {/* Right: Value and Sparkline */}
             <div className="flex items-center gap-3 flex-shrink-0">
               <div className="text-right">
-                <p className="text-lg font-bold text-white leading-none">
-                  {metric.latest_value.toFixed(1)} {metric.unit}
+                <p className="text-lg font-normal text-white leading-none">
+                  {metric.latest_value.toFixed(1)} <span className="text-xs font-light">{metric.unit}</span>
                 </p>
-                <p className="text-[9px] text-white/40 mt-0.5">
+                <p className="text-[11px] text-white/40 mt-0.5">
                   {typeof metric.change_pct === 'number' ? `${metric.change_pct > 0 ? '+' : ''}${metric.change_pct.toFixed(1)}%` : ''}
                 </p>
               </div>
