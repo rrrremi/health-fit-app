@@ -27,8 +27,8 @@ function MeasurementsPageContent() {
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month' | 'custom'>('all')
   const [customDateFrom, setCustomDateFrom] = useState('')
   const [customDateTo, setCustomDateTo] = useState('')
-  const [sortField, setSortField] = useState<'name' | 'date'>('name')
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [sortField, setSortField] = useState<'name' | 'date'>('date')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc')
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false)
 
   // Get unique categories from the data
