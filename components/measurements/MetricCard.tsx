@@ -42,17 +42,28 @@ export function MetricCard({ metric }: MetricCardProps) {
             </div>
 
             {/* Right: Value and Sparkline */}
-            <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
-              <div className="text-left sm:text-right">
-                <p className="text-base sm:text-lg font-normal text-white leading-none">
-                  {metric.latest_value.toFixed(1)} <span className="text-[10px] sm:text-xs font-light">{metric.unit}</span>
-                </p>
-                <p className="text-[10px] sm:text-[11px] text-white/40 mt-0.5">
-                  {typeof metric.change_pct === 'number' ? `${metric.change_pct > 0 ? '+' : ''}${metric.change_pct.toFixed(1)}%` : ''}
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
+              <div className="flex items-center justify-between sm:justify-end gap-2">
+                <div className="text-left sm:text-right">
+                  <p className="text-base sm:text-lg font-normal text-white leading-none">
+                    {metric.latest_value.toFixed(1)} <span className="text-[10px] sm:text-xs font-light">{metric.unit}</span>
+                  </p>
+                  <p className="text-[10px] sm:text-[11px] text-white/40 mt-0.5">
+                    {typeof metric.change_pct === 'number' ? `${metric.change_pct > 0 ? '+' : ''}${metric.change_pct.toFixed(1)}%` : ''}
+                  </p>
+                </div>
+                {metric.sparkline_points.length > 0 && (
+                  <div className="w-20 h-8 sm:hidden flex-shrink-0">
+                    <Sparkline
+                      data={metric.sparkline_points}
+                      color="#fff"
+                      unit={metric.unit}
+                    />
+                  </div>
+                )}
               </div>
               {metric.sparkline_points.length > 0 && (
-                <div className="w-16 h-7 sm:w-24 sm:h-9 flex-shrink-0">
+                <div className="hidden sm:block w-24 h-9 flex-shrink-0">
                   <Sparkline
                     data={metric.sparkline_points}
                     color="#fff"
