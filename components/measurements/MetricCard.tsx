@@ -39,16 +39,6 @@ export function MetricCard({ metric }: MetricCardProps) {
                   </span>
                 )}
               </div>
-              {typeof metric.change_pct === 'number' && (
-                <div className="mt-0.5 flex items-center gap-0.5 text-[10px]">
-                  {metric.trend_direction === 'up' && <ArrowUp className="h-2.5 w-2.5 text-emerald-400" />}
-                  {metric.trend_direction === 'down' && <ArrowDown className="h-2.5 w-2.5 text-destructive" />}
-                  {(metric.trend_direction === 'flat' || !metric.trend_direction) && <Minus className="h-2.5 w-2.5 text-white/40" />}
-                  <span className={metric.change_pct > 0 ? 'text-emerald-400' : metric.change_pct < 0 ? 'text-destructive' : 'text-white/50'}>
-                    {metric.change_pct > 0 ? '+' : ''}{metric.change_pct.toFixed(1)}%
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* Right: Value and Sparkline */}
