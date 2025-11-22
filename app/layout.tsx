@@ -26,12 +26,12 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'FitGen - AI-Powered Workout Generator',
-  description: 'Generate personalized workouts with AI. Track your fitness journey and achieve your goals with smart, adaptive training plans.',
+  title: 'heal - AI-Powered Fitness',
+  description: 'Your personal AI fitness companion. Track your fitness journey and achieve your goals with smart, adaptive training plans.',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'FitGen',
+    title: 'heal',
   },
   formatDetection: {
     telephone: false,

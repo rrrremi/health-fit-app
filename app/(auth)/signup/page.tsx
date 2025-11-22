@@ -66,9 +66,11 @@ export default function Signup() {
     <div className="flex min-h-screen flex-col items-center justify-center p-4">
       <div className="w-full max-w-md space-y-6 border border-transparent bg-white/5 backdrop-blur-xl p-8 rounded-lg">
         <div className="text-center">
-          <h1 className="text-2xl font-light text-white/90">Create your account</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white/90">
+            Welcome to heal
+          </h1>
           <p className="mt-2 text-xs text-white/60">
-            Start your fitness journey with FitGen
+            Start your fitness journey with heal
           </p>
         </div>
         
