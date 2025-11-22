@@ -21,8 +21,8 @@ export function MetricCard({ metric }: MetricCardProps) {
             <div className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full" style={{ backgroundColor: healthDotColor }} />
           )}
           
-          <div className="flex items-center justify-between gap-2">
-            {/* Left: Metric Info */}
+          <div className="flex items-start justify-between gap-3">
+            {/* Left: Metric Name and Change */}
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-1.5">
                 <p className="text-[10px] text-white/60 uppercase tracking-wide font-medium truncate leading-tight">
@@ -39,12 +39,6 @@ export function MetricCard({ metric }: MetricCardProps) {
                   </span>
                 )}
               </div>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <p className="text-lg font-bold text-white leading-none">
-                  {metric.latest_value.toFixed(1)}
-                </p>
-                <span className="text-[10px] text-white/50 font-normal">{metric.unit}</span>
-              </div>
               {typeof metric.change_pct === 'number' && (
                 <div className="mt-0.5 flex items-center gap-0.5 text-[10px]">
                   {metric.trend_direction === 'up' && <ArrowUp className="h-2.5 w-2.5 text-emerald-400" />}
@@ -57,16 +51,26 @@ export function MetricCard({ metric }: MetricCardProps) {
               )}
             </div>
 
-            {/* Right: Sparkline */}
-            {metric.sparkline_points.length > 0 && (
-              <div className="w-28 h-10 flex-shrink-0">
-                <Sparkline
-                  data={metric.sparkline_points}
-                  color="#fff"
-                  unit={metric.unit}
-                />
+            {/* Right: Value and Sparkline */}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <div className="text-right">
+                <p className="text-lg font-bold text-white leading-none">
+                  {metric.latest_value.toFixed(1)} {metric.unit}
+                </p>
+                <p className="text-[9px] text-white/40 mt-0.5">
+                  {typeof metric.change_pct === 'number' ? `${metric.change_pct > 0 ? '+' : ''}${metric.change_pct.toFixed(1)}%` : ''}
+                </p>
               </div>
-            )}
+              {metric.sparkline_points.length > 0 && (
+                <div className="w-28 h-10">
+                  <Sparkline
+                    data={metric.sparkline_points}
+                    color="#fff"
+                    unit={metric.unit}
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </Link>
