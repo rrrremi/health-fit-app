@@ -43,7 +43,7 @@ export function MetricCard({ metric }: MetricCardProps) {
 
             {/* Right: Value and Sparkline */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-2 sm:gap-3 w-full sm:w-auto">
-              <div className="flex items-center justify-between sm:justify-end gap-2">
+              <div className="flex items-start sm:items-center justify-between sm:justify-end gap-2">
                 <div className="text-left sm:text-right">
                   <p className="text-base sm:text-lg font-normal text-white leading-none">
                     {metric.latest_value.toFixed(1)} <span className="text-[10px] sm:text-xs font-light">{metric.unit}</span>
@@ -53,7 +53,7 @@ export function MetricCard({ metric }: MetricCardProps) {
                   </p>
                 </div>
                 {metric.sparkline_points.length > 0 && (
-                  <div className="w-28 h-10 sm:hidden flex-shrink-0">
+                  <div className="w-28 h-10 sm:hidden flex-shrink-0 -mt-1">
                     <Sparkline
                       data={metric.sparkline_points}
                       color="#fff"
