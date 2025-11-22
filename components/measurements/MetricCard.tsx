@@ -25,16 +25,16 @@ export function MetricCard({ metric }: MetricCardProps) {
             {/* Left: Metric Name and Change */}
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-1.5 flex-wrap">
-                <p className="text-[14px] text-white/97 uppercase tracking-wide font-normal leading-tight">
+                <p className="text-[11px] sm:text-[14px] text-white/97 uppercase tracking-wide font-normal leading-tight">
                   {metric.display_name}
                 </p>
                 {metric.source === 'ocr' && metric.confidence !== null && (
-                  <span className="text-[9px] text-emerald-400/70 flex-shrink-0">
+                  <span className="text-[8px] sm:text-[9px] text-emerald-400/70 flex-shrink-0">
                     📸 {Math.round(metric.confidence * 100)}%
                   </span>
                 )}
                 {metric.source === 'manual' && (
-                  <span className="text-[9px] text-blue-400/70 flex-shrink-0">
+                  <span className="text-[8px] sm:text-[9px] text-blue-400/70 flex-shrink-0">
                     ✍️
                   </span>
                 )}
@@ -44,10 +44,10 @@ export function MetricCard({ metric }: MetricCardProps) {
             {/* Right: Value and Sparkline */}
             <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
               <div className="text-left sm:text-right">
-                <p className="text-lg font-normal text-white leading-none">
-                  {metric.latest_value.toFixed(1)} <span className="text-xs font-light">{metric.unit}</span>
+                <p className="text-base sm:text-lg font-normal text-white leading-none">
+                  {metric.latest_value.toFixed(1)} <span className="text-[10px] sm:text-xs font-light">{metric.unit}</span>
                 </p>
-                <p className="text-[11px] text-white/40 mt-0.5">
+                <p className="text-[10px] sm:text-[11px] text-white/40 mt-0.5">
                   {typeof metric.change_pct === 'number' ? `${metric.change_pct > 0 ? '+' : ''}${metric.change_pct.toFixed(1)}%` : ''}
                 </p>
               </div>
