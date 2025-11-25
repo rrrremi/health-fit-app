@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { calculateWorkoutSummary } from '@/lib/exercises/operations'
 
 interface Exercise {
   name: string
@@ -209,9 +210,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Failed to create workout exercises: ${exercisesError.message}` }, { status: 500 })
     }
 
+    // Recalculate workout summary (duration, sets, etc.)
+    await calculateWorkoutSummary(workout.id)
+
+    // Fetch updated workout with recalculated fields
+    const { data: updatedWorkout } = await supabase
+      .from('workouts')
+      .select('*')
+      .eq('id', workout.id)
+      .single()
+
     return NextResponse.json({ 
       success: true,
-      workout 
+      workout: updatedWorkout || workout 
     }, { status: 201 })
 
   } catch (error) {

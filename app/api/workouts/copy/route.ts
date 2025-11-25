@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { calculateWorkoutSummary } from '@/lib/exercises/operations';
 
 export const dynamic = 'force-dynamic';
 
@@ -136,10 +137,20 @@ export async function POST(request: NextRequest) {
       console.log('Exercises copied successfully');
     }
     
+    // Recalculate workout summary (duration, sets, etc.)
+    await calculateWorkoutSummary(newWorkout.id);
+    
+    // Fetch updated workout with recalculated fields
+    const { data: updatedWorkout } = await supabase
+      .from('workouts')
+      .select('*')
+      .eq('id', newWorkout.id)
+      .single();
+    
     console.log(`Workout copied successfully: ${originalWorkout.name} -> ${copiedName}`);
     
     return NextResponse.json({
-      workout: newWorkout,
+      workout: updatedWorkout || newWorkout,
       message: 'Workout copied successfully'
     });
     

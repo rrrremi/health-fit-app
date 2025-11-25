@@ -275,6 +275,7 @@ export async function calculateWorkoutSummary(workoutId: string) {
       .update({
         total_sets: totalSets,
         total_exercises: totalExercises,
+        total_duration_minutes: estimatedDurationMinutes,
         primary_muscles_targeted: primaryMusclesTargeted,
         equipment_needed_array: equipmentNeeded,
         estimated_duration_minutes: estimatedDurationMinutes,
