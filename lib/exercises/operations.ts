@@ -269,32 +269,24 @@ export async function calculateWorkoutSummary(workoutId: string) {
       (totalSets * avgSetTimeSeconds + totalRestSeconds) / 60
     );
     
-    // Update the workout with summary fields
+    // Update the workout with calculated duration
     const { error: updateError } = await supabase
       .from('workouts')
       .update({
-        total_sets: totalSets,
-        total_exercises: totalExercises,
-        total_duration_minutes: estimatedDurationMinutes,
-        primary_muscles_targeted: primaryMusclesTargeted,
-        equipment_needed_array: equipmentNeeded,
-        estimated_duration_minutes: estimatedDurationMinutes,
-        updated_at: new Date().toISOString()
+        total_duration_minutes: estimatedDurationMinutes
       })
       .eq('id', workoutId);
     
     if (updateError) {
-      console.error(`Error updating workout summary: ${updateError.message}`);
-    } else {
-      console.log(`Successfully updated summary for workout ${workoutId}`);
+      console.error(`Error updating workout duration: ${updateError.message}`);
+    } else if (process.env.NODE_ENV === 'development') {
+      console.log(`Updated workout ${workoutId} duration to ${estimatedDurationMinutes}min`);
     }
     
     return {
+      total_duration_minutes: estimatedDurationMinutes,
       total_sets: totalSets,
-      total_exercises: totalExercises,
-      primary_muscles_targeted: primaryMusclesTargeted,
-      equipment_needed: equipmentNeeded,
-      estimated_duration_minutes: estimatedDurationMinutes
+      total_exercises: totalExercises
     };
   } catch (error) {
     console.error('Exception in calculateWorkoutSummary:', error);
