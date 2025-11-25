@@ -3,10 +3,11 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Scale, Upload, Plus, Search, Filter, ChevronDown, ChevronUp, X, ArrowUpDown, ArrowUp, ArrowDown, Activity } from 'lucide-react'
+import { Scale, Upload, Plus, Search, Filter, ChevronDown, ChevronUp, X, ArrowUpDown, ArrowUp, ArrowDown, Activity, Loader2 } from 'lucide-react'
 import { useMeasurementsSummary } from '@/hooks/useMeasurementsSummary'
 import { MetricCard } from '@/components/measurements/MetricCard'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { toast } from '@/lib/toast'
 
 // Date filter options (defined outside component to avoid recreation)
 const DATE_FILTER_OPTIONS = [
@@ -174,11 +175,18 @@ function MeasurementsPageContent() {
 
       const result = await response.json()
 
+      // Show appropriate message based on whether it was cached
+      if (result.cached) {
+        toast.info(`Using recent analysis (${result.cache_age_minutes} min ago)`)
+      } else {
+        toast.success('Analysis generated successfully!')
+      }
+
       // Redirect to analysis page
       window.location.href = `/protected/measurements/analysis/${result.analysis_id}`
     } catch (error: any) {
       console.error('Error generating analysis:', error)
-      alert(error.message || 'Failed to generate analysis')
+      toast.error(error.message || 'Failed to generate analysis')
     } finally {
       setIsGeneratingAnalysis(false)
     }
@@ -204,8 +212,17 @@ function MeasurementsPageContent() {
             disabled={isGeneratingAnalysis || !hasMetrics}
             className="flex items-center gap-1 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Activity className="h-3.5 w-3.5" />
-            {isGeneratingAnalysis ? 'Analyzing...' : 'Analysis'}
+            {isGeneratingAnalysis ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Activity className="h-3.5 w-3.5" />
+                Analysis
+              </>
+            )}
           </button>
           <Link href="/protected/measurements/upload">
             <button className="flex items-center gap-1 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">

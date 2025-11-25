@@ -112,9 +112,9 @@ export async function POST(request: NextRequest) {
         console.log(`Image downloaded successfully: ${buffer.length} bytes, type: ${imageType}`);
       }
 
-      // Call OpenAI GPT-4o Vision API with base64 image
+      // Call OpenAI GPT-4o-mini Vision API with base64 image (33x cheaper than gpt-4o)
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'user',

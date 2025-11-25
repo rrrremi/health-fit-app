@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import OpenAI from 'openai'
 import { cacheHelper, cacheKeys, cacheTTL } from '@/lib/cache'
 import { AnalysisSchema, AnalysisResponse } from '@/lib/validations/analysis'
 import { getOpenAIClient } from '@/lib/openai-client'
 
 const openai = getOpenAIClient()
 
+// Rate limiting constants
+const ANALYSIS_RATE_LIMIT = 5 // Max analyses per day
+const ANALYSIS_RATE_WINDOW = 24 * 60 * 60 * 1000 // 24 hours
+const ANALYSIS_CACHE_WINDOW = 60 * 60 * 1000 // 1 hour - return cached if recent
+const OPENAI_TIMEOUT = 60000 // 60 seconds
+
 // ULTRA-OPTIMIZED: Minimal prompt (600 tokens vs 1500 tokens = 60% reduction)
 const SYSTEM_PROMPT = `meta-clinician-analyst master.CSV + pre-calculated KPIs in; JSON out only.
 
-do in order: performQC,findKeyTrends,,deriveMetrics,giveAllKPIs,findCorrelations,findParadoxes,findAllRisks,findBestNextSteps,findUncertainties,findDataGaps,summarizePreciselywithObservation,
+do in order: performQC, findKeyTrends, deriveMetrics, giveAllKPIs, findCorrelations, findParadoxes, findAllRisks, findBestNextSteps, findUncertainties, findDataGaps, summarizePrecisely,
 Schema:
 {
   "sum": "",
@@ -168,6 +173,63 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Check if user is admin (admins bypass rate limits)
+    let isAdmin = false
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .single()
+      isAdmin = profile?.is_admin || false
+    } catch {
+      // Continue with rate limiting if admin check fails
+    }
+
+    // Check for recent cached analysis (within 1 hour)
+    const { data: recentAnalysis } = await supabase
+      .from('health_analyses')
+      .select('id, created_at, full_response')
+      .eq('user_id', user.id)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (recentAnalysis) {
+      const analysisAge = Date.now() - new Date(recentAnalysis.created_at).getTime()
+      if (analysisAge < ANALYSIS_CACHE_WINDOW) {
+        // Return cached analysis
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Returning cached analysis (${Math.round(analysisAge / 60000)} min old)`)
+        }
+        return NextResponse.json({
+          analysis_id: recentAnalysis.id,
+          status: 'cached',
+          data: recentAnalysis.full_response,
+          cached: true,
+          cache_age_minutes: Math.round(analysisAge / 60000)
+        })
+      }
+    }
+
+    // Rate limiting for non-admin users
+    if (!isAdmin) {
+      const yesterday = new Date(Date.now() - ANALYSIS_RATE_WINDOW)
+      const { count } = await supabase
+        .from('health_analyses')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .gte('created_at', yesterday.toISOString())
+
+      if (count && count >= ANALYSIS_RATE_LIMIT) {
+        return NextResponse.json(
+          { error: `Rate limit exceeded. You can generate up to ${ANALYSIS_RATE_LIMIT} analyses per day.` },
+          { status: 429 }
+        )
+      }
+    }
+
     // OPTIMIZATION 1: Parallel queries instead of sequential
     const [profileResult, measurementsResult, catalogData] = await Promise.all([
       // Get user profile
@@ -224,7 +286,9 @@ export async function POST(request: Request) {
     }
 
     const dbTime = Date.now() - startTime
-    console.log(`DB queries completed in ${dbTime}ms`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`DB queries completed in ${dbTime}ms`)
+    }
 
     // Format data as CSV
     const csvData = formatMeasurementsAsCSV(profile, measurements, catalogData)
@@ -234,50 +298,96 @@ export async function POST(request: Request) {
     const dateRangeStart = new Date(Math.min(...dates)).toISOString()
     const dateRangeEnd = new Date(Math.max(...dates)).toISOString()
 
-    // Call OpenAI
+    // Call OpenAI with timeout and retry
     const aiStartTime = Date.now()
     const uniqueMetrics = new Set(measurements.map(m => m.metric))
     const metricsCount = uniqueMetrics.size
-    console.log(`Calling OpenAI for health analysis (${metricsCount} metrics, ${measurements.length} data points)...`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Calling OpenAI for health analysis (${metricsCount} metrics, ${measurements.length} data points)...`)
+    }
     
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: csvData }
-      ],
-      temperature: 0,  // Deterministic: always same output for same input
-      response_format: { type: 'json_object' }
-    })
+    // Helper function to call OpenAI with timeout
+    const callOpenAIWithTimeout = async (retryAttempt = false) => {
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('OpenAI API timeout - please try again')), OPENAI_TIMEOUT)
+      )
+      
+      const apiPromise = openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { 
+            role: 'system', 
+            content: retryAttempt 
+              ? SYSTEM_PROMPT + '\n\nIMPORTANT: Return ONLY valid JSON matching the exact schema above. No extra text.'
+              : SYSTEM_PROMPT 
+          },
+          { role: 'user', content: csvData }
+        ],
+        temperature: 0,
+        response_format: { type: 'json_object' }
+      })
+      
+      return Promise.race([apiPromise, timeoutPromise])
+    }
+    
+    let completion
+    let responseText: string | null = null
+    let jsonResponse
+    let validationResult
+    let parseAttempts = 0
+    const maxAttempts = 2
+    
+    while (parseAttempts < maxAttempts) {
+      parseAttempts++
+      try {
+        completion = await callOpenAIWithTimeout(parseAttempts > 1)
+        responseText = completion.choices[0].message.content
+        
+        if (!responseText) {
+          throw new Error('Empty response from OpenAI')
+        }
+        
+        // Parse JSON response
+        jsonResponse = JSON.parse(responseText)
+        
+        // Validate with Zod
+        validationResult = AnalysisSchema.safeParse(jsonResponse)
+        
+        if (validationResult.success) {
+          break // Success, exit retry loop
+        }
+        
+        if (parseAttempts < maxAttempts) {
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Schema validation failed, retrying with stricter prompt...')
+          }
+        }
+      } catch (parseError) {
+        if (parseAttempts >= maxAttempts) {
+          throw parseError
+        }
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Parse error, retrying...', parseError)
+        }
+      }
+    }
+    
+    if (!validationResult?.success || !completion) {
+      console.error('Schema validation failed after retries:', validationResult?.error)
+      throw new Error('AI response did not match expected schema after retries')
+    }
     
     const aiTime = Date.now() - aiStartTime
-    console.log(`OpenAI completed in ${aiTime}ms`)
-
-    const responseText = completion.choices[0].message.content
-    if (!responseText) {
-      throw new Error('Empty response from OpenAI')
-    }
-
-    // Parse JSON response
-    let jsonResponse;
-    try {
-      jsonResponse = JSON.parse(responseText);
-    } catch (e) {
-      throw new Error('Failed to parse OpenAI response as JSON');
-    }
-
-    // Validate with Zod
-    const validationResult = AnalysisSchema.safeParse(jsonResponse);
-
-    if (!validationResult.success) {
-      console.error('Schema validation failed:', validationResult.error);
-      // Fallback: try to use the raw JSON if possible, or throw
-      // For now, we'll throw to ensure we don't save bad data
-      throw new Error('AI response did not match expected schema');
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`OpenAI completed in ${aiTime}ms (attempts: ${parseAttempts})`)
     }
     
     // Map abbreviated response to full schema using the validated data
     const analysisData = mapAbbreviatedResponse(validationResult.data);
+    
+    // Extract token usage safely
+    const promptTokens = completion.usage?.prompt_tokens ?? 0
+    const completionTokens = completion.usage?.completion_tokens ?? 0
 
     // Store in database
     const { data: analysis, error: insertError } = await supabase
@@ -292,9 +402,9 @@ export async function POST(request: Request) {
         date_range_end: dateRangeEnd,
         ai_provider: 'openai',
         model_version: completion.model,
-        prompt_tokens: completion.usage?.prompt_tokens,
-        completion_tokens: completion.usage?.completion_tokens,
-        total_cost: ((completion.usage?.prompt_tokens || 0) * 0.0025 + (completion.usage?.completion_tokens || 0) * 0.01) / 1000,
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_cost: (promptTokens * 0.0025 + completionTokens * 0.01) / 1000,
         summary: analysisData.summary,
         qc_issues: analysisData.qc_issues,
         normalization_notes: analysisData.normalization_notes,
@@ -320,7 +430,9 @@ export async function POST(request: Request) {
     }
 
     const totalTime = Date.now() - startTime
-    console.log(`Health analysis completed: ${analysis.id} (total: ${totalTime}ms, db: ${dbTime}ms, ai: ${aiTime}ms)`)
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Health analysis completed: ${analysis.id} (total: ${totalTime}ms, db: ${dbTime}ms, ai: ${aiTime}ms)`)
+    }
 
     return NextResponse.json({
       analysis_id: analysis.id,
@@ -331,7 +443,7 @@ export async function POST(request: Request) {
           total_ms: totalTime,
           db_ms: dbTime,
           ai_ms: aiTime,
-          tokens: completion.usage
+          tokens: { prompt: promptTokens, completion: completionTokens }
         }
       })
     })
