@@ -23,7 +23,7 @@ import { useAuth } from '@/components/auth/AuthProvider'
 export default function Header() {
   const router = useRouter()
   const pathname = usePathname()
-  const { user, signOut } = useAuth()
+  const { user, signOut, loading: authLoading } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
 
@@ -133,8 +133,10 @@ export default function Header() {
 
           {/* Right side - Auth/User Actions */}
           <div className="flex items-center gap-2">
-            {/* Force re-evaluation of user state */}
-            {(user && user.id) ? (
+            {/* Show nothing while auth is loading to prevent flash */}
+            {authLoading ? (
+              <div className="w-20 h-8" /> 
+            ) : (user && user.id) ? (
               <>
                 {/* User Menu - Desktop */}
                 <div className="hidden md:flex items-center gap-2">

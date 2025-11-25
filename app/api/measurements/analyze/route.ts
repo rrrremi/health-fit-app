@@ -15,7 +15,7 @@ const OPENAI_TIMEOUT = 60000 // 60 seconds
 // ULTRA-OPTIMIZED: Minimal prompt (600 tokens vs 1500 tokens = 60% reduction)
 const SYSTEM_PROMPT = `meta-clinician-analyst master.CSV + pre-calculated KPIs in; JSON out only.
 
-do in order: performQC, findKeyTrends, deriveMetrics, giveAllKPIs, findCorrelations, findParadoxes, findAllRisks, findBestNextSteps, findUncertainties, findDataGaps, summarizePrecisely,
+do in order: performQC, findKeyTrends, deriveMetrics, giveAllKPIs, findCorrelations, findParadoxes, findAllRisks, findBestNextSteps, findUncertainties, findDataGaps, summarizePreciselyAllFindingsInResults,
 Schema:
 {
   "sum": "",
