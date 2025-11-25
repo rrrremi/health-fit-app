@@ -403,37 +403,14 @@ const BackView = ({ intensity }: { intensity: Record<string, number> }) => (
 export default function MuscleMap({ exercises, className = '' }: MuscleMapProps) {
   const intensity = useMemo(() => calculateMuscleIntensity(exercises), [exercises])
   
-  const activeMuscleCount = useMemo(() => 
-    Object.values(intensity).filter(v => v > 0).length,
-    [intensity]
-  )
-  
   return (
-    <div className={`flex flex-col ${className}`}>
-      {/* Labels */}
-      <div className="flex justify-between text-[9px] text-white/40 mb-1 px-1">
-        <span>Front</span>
-        <span>Back</span>
+    <div className={`flex gap-1 ${className}`}>
+      <div className="flex-1 relative">
+        <FrontView intensity={intensity} />
       </div>
-      
-      {/* Figures container */}
-      <div className="flex gap-1 flex-1">
-        <div className="flex-1 relative">
-          <FrontView intensity={intensity} />
-        </div>
-        <div className="flex-1 relative">
-          <BackView intensity={intensity} />
-        </div>
+      <div className="flex-1 relative">
+        <BackView intensity={intensity} />
       </div>
-      
-      {/* Active muscle count indicator */}
-      {activeMuscleCount > 0 && (
-        <div className="text-center mt-1">
-          <span className="text-[9px] text-white/50">
-            {activeMuscleCount} muscle {activeMuscleCount === 1 ? 'group' : 'groups'} targeted
-          </span>
-        </div>
-      )}
     </div>
   )
 }
