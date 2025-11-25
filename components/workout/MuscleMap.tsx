@@ -8,23 +8,23 @@ interface MuscleMapProps {
   className?: string
 }
 
-// Map exercise muscle names to our SVG path IDs
+// --- MUSCLE MAPPING LOGIC ---
+
 const MUSCLE_ALIASES: Record<string, string[]> = {
-  chest: ['chest', 'pectorals', 'pecs'],
-  back: ['back', 'lats', 'latissimus', 'rhomboids', 'upper back', 'lower back', 'erector'],
+  chest: ['chest', 'pectorals', 'pecs', 'pectoralis'],
+  back: ['back', 'lats', 'latissimus', 'rhomboids', 'upper back', 'lower back', 'erector', 'traps', 'trapezius'],
   shoulders: ['shoulders', 'deltoids', 'delts', 'front delts', 'rear delts', 'lateral delts'],
-  biceps: ['biceps', 'bicep'],
+  biceps: ['biceps', 'bicep', 'brachialis'],
   triceps: ['triceps', 'tricep'],
-  forearms: ['forearms', 'forearm', 'wrists', 'grip'],
+  forearms: ['forearms', 'forearm', 'wrists', 'grip', 'brachioradialis'],
   core: ['core', 'abs', 'abdominals', 'obliques', 'rectus abdominis', 'transverse'],
-  quads: ['quads', 'quadriceps', 'thighs', 'front thighs'],
-  hamstrings: ['hamstrings', 'hamstring', 'rear thighs'],
+  quads: ['quads', 'quadriceps', 'thighs', 'front thighs', 'rectus femoris', 'vastus'],
+  hamstrings: ['hamstrings', 'hamstring', 'rear thighs', 'biceps femoris'],
   glutes: ['glutes', 'gluteus', 'buttocks', 'hips'],
-  calves: ['calves', 'calf', 'gastrocnemius', 'soleus'],
-  traps: ['traps', 'trapezius', 'upper traps', 'neck'],
+  calves: ['calves', 'calf', 'gastrocnemius', 'soleus', 'tibialis'],
+  neck: ['neck', 'sternocleidomastoid'],
 }
 
-// Normalize muscle name to our standard keys
 function normalizeMuscle(muscle: string): string | null {
   const lower = muscle.toLowerCase().trim()
   for (const [key, aliases] of Object.entries(MUSCLE_ALIASES)) {
@@ -32,14 +32,12 @@ function normalizeMuscle(muscle: string): string | null {
       return key
     }
   }
-  // Check for full body
   if (lower.includes('full body') || lower.includes('compound') || lower.includes('total body')) {
     return 'full_body'
   }
   return null
 }
 
-// Calculate muscle intensity from exercises
 function calculateMuscleIntensity(exercises: Exercise[]): Record<string, number> {
   const counts: Record<string, number> = {}
   
@@ -48,7 +46,6 @@ function calculateMuscleIntensity(exercises: Exercise[]): Record<string, number>
     muscles.forEach(muscle => {
       const normalized = normalizeMuscle(muscle)
       if (normalized === 'full_body') {
-        // Full body hits everything
         Object.keys(MUSCLE_ALIASES).forEach(key => {
           counts[key] = (counts[key] || 0) + 0.5
         })
@@ -58,7 +55,6 @@ function calculateMuscleIntensity(exercises: Exercise[]): Record<string, number>
     })
   })
   
-  // Normalize to 0-1 scale
   const maxCount = Math.max(...Object.values(counts), 1)
   const intensity: Record<string, number> = {}
   for (const [key, count] of Object.entries(counts)) {
@@ -68,334 +64,170 @@ function calculateMuscleIntensity(exercises: Exercise[]): Record<string, number>
   return intensity
 }
 
-// Get fill color based on intensity (white with varying opacity)
-function getMuscleFill(intensity: number): string {
+// --- ANATOMICAL PATHS (Normalized to 100x200 viewbox) ---
+// "Top notch" approximations using organic bezier curves
+const PATHS = {
+  // Front View
+  front: {
+    head: "M50,2 C45,2 41,6 41,12 C41,19 45,24 50,24 C55,24 59,19 59,12 C59,6 55,2 50,2 Z",
+    neck: "M44,22 C44,22 43,28 41,30 L59,30 C57,28 56,22 56,22",
+    traps: "M41,30 L32,32 C32,32 36,28 41,26 L59,26 C64,28 68,32 68,32 L59,30",
+    shoulders: {
+      left: "M32,32 C25,33 22,38 21,45 C21,52 24,55 26,58 L32,52 C34,45 35,38 32,32",
+      right: "M68,32 C75,33 78,38 79,45 C79,52 76,55 74,58 L68,52 C66,45 65,38 68,32"
+    },
+    chest: {
+      left: "M50,32 L41,32 C35,38 32,52 34,55 C40,58 48,55 50,52 Z",
+      right: "M50,32 L59,32 C65,38 68,52 66,55 C60,58 52,55 50,52 Z"
+    },
+    biceps: {
+      left: "M26,58 C24,62 23,68 24,72 C25,75 28,74 30,72 L32,58 Z",
+      right: "M74,58 C76,62 77,68 76,72 C75,75 72,74 70,72 L68,58 Z"
+    },
+    forearms: {
+      left: "M24,72 C22,76 20,85 21,92 C22,95 25,94 26,92 L28,76 Z",
+      right: "M76,72 C78,76 80,85 79,92 C78,95 75,94 74,92 L72,76 Z"
+    },
+    abs: "M42,58 C42,58 44,90 50,90 C56,90 58,58 58,58 C55,55 45,55 42,58 M42,68 H58 M43,78 H57",
+    obliques: {
+      left: "M42,58 C38,60 34,75 36,88 L42,90 C40,80 41,65 42,58",
+      right: "M58,58 C62,60 66,75 64,88 L58,90 C60,80 59,65 58,58"
+    },
+    quads: {
+      left: "M36,92 C30,100 28,130 32,145 C36,150 42,148 44,145 C46,130 44,100 42,92 Z",
+      right: "M64,92 C70,100 72,130 68,145 C64,150 58,148 56,145 C54,130 56,100 58,92 Z"
+    },
+    calves: {
+      left: "M32,148 C30,155 28,170 30,180 C32,185 36,185 38,180 C40,170 38,155 44,148 Z",
+      right: "M68,148 C70,155 72,170 70,180 C68,185 64,185 62,180 C60,170 62,155 56,148 Z"
+    }
+  },
+  
+  // Back View
+  back: {
+    head: "M50,2 C45,2 41,6 41,12 C41,19 45,24 50,24 C55,24 59,19 59,12 C59,6 55,2 50,2 Z",
+    neck: "M44,22 C43,28 41,30 L59,30 C57,28 56,22 56,22",
+    traps: "M50,22 L41,26 C36,28 32,32 32,32 L44,38 L50,50 L56,38 L68,32 C68,32 64,28 59,26 Z",
+    shoulders: {
+      left: "M32,32 C25,33 22,38 21,45 C21,52 24,55 26,58 L32,52 C34,45 35,38 32,32",
+      right: "M68,32 C75,33 78,38 79,45 C79,52 76,55 74,58 L68,52 C66,45 65,38 68,32"
+    },
+    lats: {
+      left: "M44,38 L34,45 C32,60 36,75 42,82 L50,85 L50,50 Z",
+      right: "M56,38 L66,45 C68,60 64,75 58,82 L50,85 L50,50 Z"
+    },
+    lower_back: "M42,82 C42,82 44,92 50,92 C56,92 58,82 58,82 L50,85 Z",
+    triceps: {
+      left: "M26,58 C24,62 23,68 24,72 C25,75 28,74 30,72 L32,58 Z",
+      right: "M74,58 C76,62 77,68 76,72 C75,75 72,74 70,72 L68,58 Z"
+    },
+    forearms: {
+      left: "M24,72 C22,76 20,85 21,92 C22,95 25,94 26,92 L28,76 Z",
+      right: "M76,72 C78,76 80,85 79,92 C78,95 75,94 74,92 L72,76 Z"
+    },
+    glutes: {
+      left: "M42,92 C35,94 32,105 34,115 C38,120 48,120 50,115 L50,92 Z",
+      right: "M58,92 C65,94 68,105 66,115 C62,120 52,120 50,115 L50,92 Z"
+    },
+    hamstrings: {
+      left: "M34,118 C32,125 32,140 34,148 C38,150 42,148 44,145 C46,130 46,120 34,118 Z",
+      right: "M66,118 C68,125 68,140 66,148 C62,150 58,148 56,145 C54,130 54,120 66,118 Z"
+    },
+    calves: {
+      left: "M34,148 C30,155 30,170 32,180 C36,185 38,185 40,180 C42,170 42,155 44,148 Z",
+      right: "M66,148 C70,155 70,170 68,180 C64,185 62,185 60,180 C58,170 58,155 56,148 Z"
+    }
+  }
+}
+
+// --- VISUAL UTILS ---
+
+function getFill(intensity: number): string {
   if (intensity <= 0) return 'transparent'
-  // Map intensity to opacity: 0.15 to 0.9
-  const opacity = 0.15 + (intensity * 0.75)
+  const opacity = 0.15 + (intensity * 0.85) // Higher contrast: 0.15 to 1.0
   return `rgba(255, 255, 255, ${opacity.toFixed(2)})`
 }
 
-// SVG Filter for 3D glow effect
-const SVGFilters = () => (
-  <defs>
-    <filter id="muscle-glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
-      <feOffset in="blur" dx="0" dy="1" result="offsetBlur" />
-      <feFlood floodColor="white" floodOpacity="0.3" />
-      <feComposite in2="offsetBlur" operator="in" />
-      <feMerge>
-        <feMergeNode />
-        <feMergeNode in="SourceGraphic" />
-      </feMerge>
-    </filter>
-    <filter id="inner-glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
-    <linearGradient id="body-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="white" stopOpacity="0.1" />
-      <stop offset="100%" stopColor="white" stopOpacity="0.05" />
-    </linearGradient>
-  </defs>
-)
+// Shared props for SVG paths
+const PATH_PROPS = {
+  stroke: "rgba(255,255,255,0.4)",
+  strokeWidth: "0.5",
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  vectorEffect: "non-scaling-stroke"
+}
 
-// Front view SVG
+// --- COMPONENTS ---
+
 const FrontView = ({ intensity }: { intensity: Record<string, number> }) => (
-  <svg viewBox="0 0 100 200" className="w-full h-full">
-    <SVGFilters />
+  <svg viewBox="0 0 100 200" className="w-full h-full overflow-visible">
+    <defs>
+      <filter id="glow-front" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2" result="blur" />
+        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+      </filter>
+    </defs>
     
-    {/* Body outline */}
-    <g stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none">
-      {/* Head */}
-      <ellipse cx="50" cy="18" rx="12" ry="14" />
-      {/* Neck */}
-      <path d="M44 30 L44 38 M56 30 L56 38" />
-      {/* Torso outline */}
-      <path d="M30 40 Q25 60 28 90 L32 120 L40 125 L50 128 L60 125 L68 120 L72 90 Q75 60 70 40 Z" />
-      {/* Arms outline */}
-      <path d="M28 42 Q15 50 12 75 Q10 90 15 105 Q18 115 22 120" />
-      <path d="M72 42 Q85 50 88 75 Q90 90 85 105 Q82 115 78 120" />
-      {/* Legs outline */}
-      <path d="M35 125 L32 160 L30 190 M45 128 L42 160 L40 190" />
-      <path d="M65 125 L68 160 L70 190 M55 128 L58 160 L60 190" />
-    </g>
-    
-    {/* Muscle groups - Front */}
-    <g filter="url(#inner-glow)">
-      {/* Neck/Traps front */}
-      <path 
-        d="M44 32 Q50 35 56 32 L56 40 Q50 42 44 40 Z"
-        fill={getMuscleFill(intensity.traps || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
+    <g filter="url(#glow-front)">
+      {/* Head & Neck */}
+      <path d={PATHS.front.head} fill="rgba(255,255,255,0.05)" {...PATH_PROPS} />
+      <path d={PATHS.front.neck} fill={getFill(intensity.neck || intensity.traps || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.traps} fill={getFill(intensity.traps || 0)} {...PATH_PROPS} />
       
-      {/* Shoulders - Left */}
-      <path 
-        d="M30 42 Q28 48 29 55 L38 52 L40 44 Q35 40 30 42 Z"
-        fill={getMuscleFill(intensity.shoulders || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
+      {/* Upper Body */}
+      <path d={PATHS.front.shoulders.left} fill={getFill(intensity.shoulders || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.shoulders.right} fill={getFill(intensity.shoulders || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.chest.left} fill={getFill(intensity.chest || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.chest.right} fill={getFill(intensity.chest || 0)} {...PATH_PROPS} />
       
-      {/* Shoulders - Right */}
-      <path 
-        d="M70 42 Q72 48 71 55 L62 52 L60 44 Q65 40 70 42 Z"
-        fill={getMuscleFill(intensity.shoulders || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
+      {/* Arms */}
+      <path d={PATHS.front.biceps.left} fill={getFill(intensity.biceps || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.biceps.right} fill={getFill(intensity.biceps || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.forearms.left} fill={getFill(intensity.forearms || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.forearms.right} fill={getFill(intensity.forearms || 0)} {...PATH_PROPS} />
       
-      {/* Chest - Left */}
-      <path 
-        d="M38 48 Q42 45 50 46 L50 62 Q45 65 40 63 L38 55 Z"
-        fill={getMuscleFill(intensity.chest || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
+      {/* Core */}
+      <path d={PATHS.front.abs} fill={getFill(intensity.core || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.obliques.left} fill={getFill(intensity.core || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.obliques.right} fill={getFill(intensity.core || 0)} {...PATH_PROPS} />
       
-      {/* Chest - Right */}
-      <path 
-        d="M62 48 Q58 45 50 46 L50 62 Q55 65 60 63 L62 55 Z"
-        fill={getMuscleFill(intensity.chest || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Biceps - Left */}
-      <path 
-        d="M26 55 Q22 65 20 78 L28 80 Q30 68 32 58 Z"
-        fill={getMuscleFill(intensity.biceps || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Biceps - Right */}
-      <path 
-        d="M74 55 Q78 65 80 78 L72 80 Q70 68 68 58 Z"
-        fill={getMuscleFill(intensity.biceps || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Forearms - Left */}
-      <path 
-        d="M18 82 Q16 95 18 108 L24 110 Q26 96 24 84 Z"
-        fill={getMuscleFill(intensity.forearms || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Forearms - Right */}
-      <path 
-        d="M82 82 Q84 95 82 108 L76 110 Q74 96 76 84 Z"
-        fill={getMuscleFill(intensity.forearms || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Core/Abs */}
-      <path 
-        d="M42 65 L42 95 Q45 100 50 100 Q55 100 58 95 L58 65 Q55 62 50 62 Q45 62 42 65 Z"
-        fill={getMuscleFill(intensity.core || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Obliques - Left */}
-      <path 
-        d="M35 68 L42 65 L42 95 L38 100 Q34 90 35 68 Z"
-        fill={getMuscleFill(intensity.core || 0) !== 'transparent' ? getMuscleFill((intensity.core || 0) * 0.7) : 'transparent'}
-        stroke="rgba(255,255,255,0.15)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Obliques - Right */}
-      <path 
-        d="M65 68 L58 65 L58 95 L62 100 Q66 90 65 68 Z"
-        fill={getMuscleFill(intensity.core || 0) !== 'transparent' ? getMuscleFill((intensity.core || 0) * 0.7) : 'transparent'}
-        stroke="rgba(255,255,255,0.15)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Quads - Left */}
-      <path 
-        d="M36 105 L34 125 L32 155 L42 158 L45 130 L44 108 Q40 103 36 105 Z"
-        fill={getMuscleFill(intensity.quads || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Quads - Right */}
-      <path 
-        d="M64 105 L66 125 L68 155 L58 158 L55 130 L56 108 Q60 103 64 105 Z"
-        fill={getMuscleFill(intensity.quads || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Calves - Left front */}
-      <path 
-        d="M32 162 L30 185 L38 188 L42 165 Z"
-        fill={getMuscleFill(intensity.calves || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Calves - Right front */}
-      <path 
-        d="M68 162 L70 185 L62 188 L58 165 Z"
-        fill={getMuscleFill(intensity.calves || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
+      {/* Legs */}
+      <path d={PATHS.front.quads.left} fill={getFill(intensity.quads || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.quads.right} fill={getFill(intensity.quads || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.calves.left} fill={getFill(intensity.calves || 0)} {...PATH_PROPS} />
+      <path d={PATHS.front.calves.right} fill={getFill(intensity.calves || 0)} {...PATH_PROPS} />
     </g>
   </svg>
 )
 
-// Back view SVG
 const BackView = ({ intensity }: { intensity: Record<string, number> }) => (
-  <svg viewBox="0 0 100 200" className="w-full h-full">
-    <SVGFilters />
-    
-    {/* Body outline */}
-    <g stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" fill="none">
-      {/* Head */}
-      <ellipse cx="50" cy="18" rx="12" ry="14" />
-      {/* Neck */}
-      <path d="M44 30 L44 38 M56 30 L56 38" />
-      {/* Torso outline */}
-      <path d="M30 40 Q25 60 28 90 L32 120 L40 125 L50 128 L60 125 L68 120 L72 90 Q75 60 70 40 Z" />
-      {/* Arms outline */}
-      <path d="M28 42 Q15 50 12 75 Q10 90 15 105 Q18 115 22 120" />
-      <path d="M72 42 Q85 50 88 75 Q90 90 85 105 Q82 115 78 120" />
-      {/* Legs outline */}
-      <path d="M35 125 L32 160 L30 190 M45 128 L42 160 L40 190" />
-      <path d="M65 125 L68 160 L70 190 M55 128 L58 160 L60 190" />
-    </g>
-    
-    {/* Muscle groups - Back */}
-    <g filter="url(#inner-glow)">
-      {/* Traps */}
-      <path 
-        d="M38 38 Q44 32 50 30 Q56 32 62 38 L62 50 Q56 48 50 48 Q44 48 38 50 Z"
-        fill={getMuscleFill(intensity.traps || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
+  <svg viewBox="0 0 100 200" className="w-full h-full overflow-visible">
+    <g filter="url(#glow-front)">
+      {/* Head & Neck */}
+      <path d={PATHS.back.head} fill="rgba(255,255,255,0.05)" {...PATH_PROPS} />
+      <path d={PATHS.back.neck} fill={getFill(intensity.neck || intensity.traps || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.traps} fill={getFill(intensity.traps || intensity.back || 0)} {...PATH_PROPS} />
       
-      {/* Rear Delts - Left */}
-      <path 
-        d="M30 42 Q28 48 29 55 L38 55 L38 44 Q35 40 30 42 Z"
-        fill={getMuscleFill(intensity.shoulders || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
+      {/* Upper Body */}
+      <path d={PATHS.back.shoulders.left} fill={getFill(intensity.shoulders || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.shoulders.right} fill={getFill(intensity.shoulders || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.lats.left} fill={getFill(intensity.back || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.lats.right} fill={getFill(intensity.back || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.lower_back} fill={getFill(intensity.back || intensity.core || 0)} {...PATH_PROPS} />
       
-      {/* Rear Delts - Right */}
-      <path 
-        d="M70 42 Q72 48 71 55 L62 55 L62 44 Q65 40 70 42 Z"
-        fill={getMuscleFill(intensity.shoulders || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
+      {/* Arms */}
+      <path d={PATHS.back.triceps.left} fill={getFill(intensity.triceps || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.triceps.right} fill={getFill(intensity.triceps || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.forearms.left} fill={getFill(intensity.forearms || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.forearms.right} fill={getFill(intensity.forearms || 0)} {...PATH_PROPS} />
       
-      {/* Upper Back / Lats - Left */}
-      <path 
-        d="M38 52 L38 80 Q42 85 50 85 L50 52 Q44 50 38 52 Z"
-        fill={getMuscleFill(intensity.back || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Upper Back / Lats - Right */}
-      <path 
-        d="M62 52 L62 80 Q58 85 50 85 L50 52 Q56 50 62 52 Z"
-        fill={getMuscleFill(intensity.back || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Lower Back */}
-      <path 
-        d="M40 88 Q45 85 50 85 Q55 85 60 88 L60 105 Q55 108 50 108 Q45 108 40 105 Z"
-        fill={getMuscleFill(intensity.back || 0) !== 'transparent' ? getMuscleFill((intensity.back || 0) * 0.8) : 'transparent'}
-        stroke="rgba(255,255,255,0.15)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Triceps - Left */}
-      <path 
-        d="M26 55 Q22 65 20 78 L28 80 Q30 68 32 58 Z"
-        fill={getMuscleFill(intensity.triceps || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Triceps - Right */}
-      <path 
-        d="M74 55 Q78 65 80 78 L72 80 Q70 68 68 58 Z"
-        fill={getMuscleFill(intensity.triceps || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Forearms - Left */}
-      <path 
-        d="M18 82 Q16 95 18 108 L24 110 Q26 96 24 84 Z"
-        fill={getMuscleFill(intensity.forearms || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Forearms - Right */}
-      <path 
-        d="M82 82 Q84 95 82 108 L76 110 Q74 96 76 84 Z"
-        fill={getMuscleFill(intensity.forearms || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Glutes */}
-      <path 
-        d="M38 108 Q42 105 50 105 Q58 105 62 108 L65 125 Q58 130 50 130 Q42 130 35 125 Z"
-        fill={getMuscleFill(intensity.glutes || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Hamstrings - Left */}
-      <path 
-        d="M36 128 L34 150 L32 170 L42 172 L44 152 L44 130 Q40 128 36 128 Z"
-        fill={getMuscleFill(intensity.hamstrings || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Hamstrings - Right */}
-      <path 
-        d="M64 128 L66 150 L68 170 L58 172 L56 152 L56 130 Q60 128 64 128 Z"
-        fill={getMuscleFill(intensity.hamstrings || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Calves - Left back */}
-      <path 
-        d="M32 172 L30 188 L40 190 L42 175 Z"
-        fill={getMuscleFill(intensity.calves || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
-      
-      {/* Calves - Right back */}
-      <path 
-        d="M68 172 L70 188 L60 190 L58 175 Z"
-        fill={getMuscleFill(intensity.calves || 0)}
-        stroke="rgba(255,255,255,0.2)"
-        strokeWidth="0.3"
-      />
+      {/* Legs */}
+      <path d={PATHS.back.glutes.left} fill={getFill(intensity.glutes || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.glutes.right} fill={getFill(intensity.glutes || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.hamstrings.left} fill={getFill(intensity.hamstrings || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.hamstrings.right} fill={getFill(intensity.hamstrings || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.calves.left} fill={getFill(intensity.calves || 0)} {...PATH_PROPS} />
+      <path d={PATHS.back.calves.right} fill={getFill(intensity.calves || 0)} {...PATH_PROPS} />
     </g>
   </svg>
 )
@@ -404,7 +236,7 @@ export default function MuscleMap({ exercises, className = '' }: MuscleMapProps)
   const intensity = useMemo(() => calculateMuscleIntensity(exercises), [exercises])
   
   return (
-    <div className={`flex gap-1 ${className}`}>
+    <div className={`flex gap-2 ${className}`}>
       <div className="flex-1 relative">
         <FrontView intensity={intensity} />
       </div>
