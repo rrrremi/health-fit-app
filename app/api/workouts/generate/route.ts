@@ -123,9 +123,13 @@ export async function POST(request: NextRequest) {
     // (it's already been added to specialInstructions)
     const { excludeExercises, ...workoutRequest } = requestData;
     
-    console.log('Calling generateWorkout with:', workoutRequest);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Calling generateWorkout with:', workoutRequest);
+    }
     const result = await generateWorkout(workoutRequest);
-    console.log('generateWorkout result:', result.success ? 'SUCCESS' : 'FAILED', result.error || '');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('generateWorkout result:', result.success ? 'SUCCESS' : 'FAILED', result.error || '');
+    }
     
     if (!result.success || !result.data) {
       console.error('Failed to generate workout:', result.error);
@@ -176,7 +180,7 @@ export async function POST(request: NextRequest) {
         equipment_needed: result.data.equipment_needed || 'Bodyweight',
         workout_data: result.data,
         raw_ai_response: rawResponseWithMetadata,
-        ai_model: 'gpt-3.5-turbo',
+        ai_model: 'gpt-4o-mini',
         prompt_tokens: result.usage?.promptTokens,
         completion_tokens: result.usage?.completionTokens,
         generation_time_ms: result.generationTimeMs,

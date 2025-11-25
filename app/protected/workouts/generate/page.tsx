@@ -47,6 +47,12 @@ const MUSCLE_GROUPS = [
   { id: 'calves', label: 'Calves' },
 ];
 
+const DIFFICULTY_LEVELS = [
+  { id: 'beginner', label: 'Beginner', description: 'New to training' },
+  { id: 'intermediate', label: 'Intermediate', description: 'Regular training' },
+  { id: 'advanced', label: 'Advanced', description: 'Experienced lifter' },
+];
+
 const WORKOUT_FOCUS = [
   { id: 'hypertrophy', label: 'Hypertrophy', icon: Dumbbell, description: 'Build muscle size and strength' },
   { id: 'strength', label: 'Strength', icon: Zap, description: 'Maximize muscle power and force' },
@@ -73,17 +79,16 @@ export default function GenerateWorkoutPage() {
   const [exerciseCount, setExerciseCount] = useState<number>(4);
   const [specialInstructions, setSpecialInstructions] = useState<string>('');
   const [charCount, setCharCount] = useState<number>(0);
+  const [difficulty, setDifficulty] = useState<string>('intermediate');
   const [showProgressiveLoading, setShowProgressiveLoading] = useState(false)
   const [progressiveStep, setProgressiveStep] = useState(0)
   const [progressiveSteps] = useState([
-    'Validating your inputs',
-    'Preparing AI prompt',
-    'Generating with OpenAI',
-    'Processing workout data',
-    'Saving to database',
-    'Finalizing your workout'
+    'Preparing your workout',
+    'Generating with AI',
+    'Saving workout'
   ])
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Load URL parameters for regeneration
   useEffect(() => {
@@ -233,11 +238,33 @@ export default function GenerateWorkoutPage() {
     if (error) setError(null);
   }, [error, muscleFocus.length, showSuggestions]);
 
+  // Cancel any in-flight generation request
+  const cancelGeneration = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      cancelGeneration();
+    };
+  }, [cancelGeneration]);
+
   const generateWorkout = async () => {
     if (validationError) {
       setError(validationError);
       return;
     }
+
+    // Cancel any previous request
+    cancelGeneration();
+
+    // Create new abort controller
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
 
     setIsGenerating(true);
     setError(null);
@@ -245,11 +272,8 @@ export default function GenerateWorkoutPage() {
     setProgressiveStep(0);
 
     try {
-      // Step 1: Validating inputs
+      // Step 1: Preparing request
       setProgressiveStep(0);
-
-      // Step 2: Preparing AI prompt
-      setProgressiveStep(1);
 
       // Check if this is a regeneration (excludeExercises in URL)
       const searchParams = new URLSearchParams(window.location.search)
@@ -258,15 +282,15 @@ export default function GenerateWorkoutPage() {
       
       const requestBody: WorkoutGenerationRequest & { excludeExercises?: string[] } = {
         muscleFocus: muscleFocus,
-        workoutFocus: workoutFocus, // Pass the entire array of workout focus types
+        workoutFocus: workoutFocus,
         exerciseCount: exerciseCount,
         specialInstructions: specialInstructions,
-        difficulty: 'intermediate', // Default difficulty
+        difficulty: difficulty,
         excludeExercises: excludeExercises
       };
 
-      // Step 3: Generating with OpenAI
-      setProgressiveStep(2);
+      // Step 2: Generating with AI
+      setProgressiveStep(1);
 
       let data;
       try {
@@ -275,46 +299,37 @@ export default function GenerateWorkoutPage() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: abortController.signal
         });
+
+        // Check if aborted
+        if (abortController.signal.aborted) {
+          return;
+        }
 
         // Check if the response is JSON before trying to parse it
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           data = await response.json();
         } else {
-          // If not JSON, get the text and log it for debugging
           const text = await response.text();
-          console.error('Non-JSON response received:', text.substring(0, 500));
-          data = { error: 'Invalid server response', rawResponse: text.substring(0, 500) };
+          data = { error: 'Invalid server response' };
         }
 
         if (!response.ok) {
-          console.error('Workout generation failed:', {
-            status: response.status,
-            statusText: response.statusText,
-            error: data.error,
-            details: data.details,
-            requestBody
-          });
           throw new Error(data.error || 'Failed to generate workout');
         }
       } catch (fetchError) {
-        console.error('Fetch error during workout generation:', fetchError);
+        // Don't show error if request was aborted
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          return;
+        }
         throw fetchError;
       }
 
-      // Step 4: Processing workout data
-      setProgressiveStep(3);
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // Step 5: Saving to database
-      setProgressiveStep(4);
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      // Step 6: Finalizing workout
-      setProgressiveStep(5);
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Step 3: Saving workout
+      setProgressiveStep(2);
 
       if (data && data.success && data.workoutId) {
         // Update the generation count
@@ -325,7 +340,7 @@ export default function GenerateWorkoutPage() {
 
         toast.success('Workout generated successfully!');
         
-        // Redirect to the workout details page without leaving the generator in history
+        // Redirect to the workout details page
         router.replace(`/protected/workouts/${data.workoutId}`);
       } else if (data) {
         throw new Error(data.error || 'Failed to generate workout');
@@ -333,6 +348,10 @@ export default function GenerateWorkoutPage() {
         throw new Error('No response data received');
       }
     } catch (err) {
+      // Don't show error if aborted
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
       const message = err instanceof Error ? err.message : 'An unexpected error occurred';
       setError(message);
       toast.error(message);
@@ -494,6 +513,26 @@ export default function GenerateWorkoutPage() {
                   <span>1</span>
                   <span>10</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Difficulty Level */}
+            <div className="mb-3">
+              <label className="text-xs text-white/70 mb-1 block">Difficulty</label>
+              <div className="flex gap-1.5">
+                {DIFFICULTY_LEVELS.map((level) => (
+                  <button
+                    key={level.id}
+                    onClick={() => setDifficulty(level.id)}
+                    className={`flex-1 py-1.5 px-2 rounded-md text-[10px] font-medium transition-colors ${
+                      difficulty === level.id
+                        ? 'bg-emerald-500/30 text-emerald-200 border border-transparent'
+                        : 'bg-white/10 text-white/70 border border-transparent hover:bg-white/20'
+                    }`}
+                  >
+                    {level.label}
+                  </button>
+                ))}
               </div>
             </div>
 

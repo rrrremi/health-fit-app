@@ -5,7 +5,7 @@ import { EXERCISE_DATABASE_PROMPT, EXERCISE_DATABASE_RETRY_PROMPT } from './prom
 import { WorkoutSchema, WorkoutResponse } from './validations/workout';
 import { getOpenAIClient } from './openai-client';
 
-export const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-3.5-turbo';
+export const DEFAULT_OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-4o-mini';
 
 /**
  * Result of workout generation
@@ -244,7 +244,7 @@ export async function generateWorkout(
         }
       }
 
-      // Return success result
+      // Return success result with actual token usage
       return {
         success: true,
         data: {
@@ -261,9 +261,9 @@ export async function generateWorkout(
         parseAttempts,
         generationTimeMs: Date.now() - startTime,
         usage: {
-          promptTokens: 0, // We'll need to handle this differently with v4
-          completionTokens: 0,
-          totalTokens: 0,
+          promptTokens: response.usage?.prompt_tokens ?? 0,
+          completionTokens: response.usage?.completion_tokens ?? 0,
+          totalTokens: response.usage?.total_tokens ?? 0,
         },
       };
     } catch (parseError) {

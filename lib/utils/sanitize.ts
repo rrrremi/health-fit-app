@@ -2,6 +2,33 @@
  * Sanitization utilities for user input
  */
 
+// Common prompt injection patterns to detect and block
+const PROMPT_INJECTION_PATTERNS = [
+  /ignore\s+(all\s+)?(previous|prior|above)/i,
+  /disregard\s+(all\s+)?(previous|prior|above)/i,
+  /forget\s+(all\s+)?(previous|prior|above)/i,
+  /new\s+instructions?/i,
+  /system\s*:?\s*prompt/i,
+  /you\s+are\s+(now|a)/i,
+  /act\s+as\s+(if|a)/i,
+  /pretend\s+(to\s+be|you)/i,
+  /roleplay\s+as/i,
+  /\bDAN\b/i,  // "Do Anything Now" jailbreak
+  /jailbreak/i,
+  /bypass\s+(filter|safety|restriction)/i,
+  /override\s+(instruction|rule|filter)/i,
+  /\{\{.*\}\}/,  // Template injection
+  /\[\[.*\]\]/,  // Alternative template syntax
+  /```[\s\S]*```/,   // Code block injection
+];
+
+/**
+ * Check if input contains prompt injection attempts
+ */
+function containsPromptInjection(input: string): boolean {
+  return PROMPT_INJECTION_PATTERNS.some(pattern => pattern.test(input));
+}
+
 /**
  * Sanitize special instructions to prevent XSS and prompt injection
  * Preserves: letters, numbers, spaces, basic punctuation
@@ -14,6 +41,15 @@ export function sanitizeSpecialInstructions(input: string | undefined): string |
 
   // Trim whitespace
   let sanitized = input.trim();
+
+  // Check for prompt injection attempts - if detected, return safe fallback
+  if (containsPromptInjection(sanitized)) {
+    // Log for monitoring (in production, send to logging service)
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('[SECURITY] Prompt injection attempt detected:', sanitized.substring(0, 50));
+    }
+    return undefined; // Block the entire input
+  }
 
   // Remove HTML tags
   sanitized = sanitized.replace(/<[^>]*>/g, '');
@@ -30,6 +66,9 @@ export function sanitizeSpecialInstructions(input: string | undefined): string |
 
   // Limit consecutive special characters
   sanitized = sanitized.replace(/([.,!?'\-":;]){3,}/g, '$1$1');
+
+  // Collapse multiple spaces
+  sanitized = sanitized.replace(/\s+/g, ' ');
 
   // Limit length (already done in API but double-check)
   sanitized = sanitized.substring(0, 140);
