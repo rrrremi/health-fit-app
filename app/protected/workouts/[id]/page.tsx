@@ -8,6 +8,7 @@ import { Dumbbell, Sparkles, Play, Target, BarChart3, Clock, Calendar, Trash2, A
 import FocusTrap from 'focus-trap-react'
 import InlineEdit from '@/components/ui/InlineEdit'
 import ExerciseVideoButton from '@/components/workout/ExerciseVideoButton'
+import MuscleMap from '@/components/workout/MuscleMap'
 import { SkeletonWorkoutDetail } from '@/components/ui/Skeleton'
 import { Workout, Exercise, WorkoutData, WorkoutSetDetail } from '@/types/workout'
 import { toast } from '@/lib/toast'
@@ -1386,167 +1387,178 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
 
           {workout && (
             <>
-              {/* Workout Overview */}
+              {/* Workout Overview with Muscle Map */}
               <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
-                <div className="rounded-lg border border-transparent bg-white/5 backdrop-blur-xl">
-                  <div className="flex items-center justify-between p-2 border-b border-transparent">
-                    <h3 className="text-xs text-white/90 flex items-center">
-                      <Target className="h-3.5 w-3.5 mr-1" />
-                      Overview
-                    </h3>
-                    <WorkoutRating
-                      workoutId={workout.id}
-                      initialRating={workout.rating}
-                      onRatingChange={(rating) => {
-                        setWorkout({ ...workout, rating })
-                      }}
-                    />
-                  </div>
-                  <div className="p-2">
-                    <div className="grid gap-2 grid-cols-2">
-                      <div className="flex items-center justify-between rounded-md border border-transparent bg-white/5 p-2">
-                        <div className="flex items-center gap-1 text-xs text-white/70">
-                          <Clock className="h-3 w-3" />
-                          Duration
-                        </div>
-                        <span className="text-xs font-medium text-white/90">{workout.total_duration_minutes}m</span>
-                      </div>
-                      <div className="flex items-center justify-between rounded-md border border-transparent bg-white/5 p-2">
-                        <div className="flex items-center gap-1 text-xs text-white/70">
-                          <BarChart3 className="h-3 w-3" />
-                          Exercises
-                        </div>
-                        <span className="text-xs font-medium text-white/90">{workout.workout_data.exercises.length}</span>
-                      </div>
+                <div className="flex flex-col md:flex-row gap-2">
+                  {/* Overview Card */}
+                  <div className="flex-1 rounded-lg border border-transparent bg-white/5 backdrop-blur-xl">
+                    <div className="flex items-center justify-between p-2 border-b border-transparent">
+                      <h3 className="text-xs text-white/90 flex items-center">
+                        <Target className="h-3.5 w-3.5 mr-1" />
+                        Overview
+                      </h3>
+                      <WorkoutRating
+                        workoutId={workout.id}
+                        initialRating={workout.rating}
+                        onRatingChange={(rating) => {
+                          setWorkout({ ...workout, rating })
+                        }}
+                      />
                     </div>
-                    
-                    <div className="mt-2 grid grid-cols-2 gap-2">
-                      <div className="flex flex-col gap-1 rounded-md border border-transparent bg-white/5 p-2">
-                        <div className="flex items-center gap-1 text-xs text-white/70">
-                          <Calendar className="h-3 w-3" />
-                          Target Date
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="date"
-                            className="w-full rounded-md bg-black/20 border border-transparent px-2 py-1 text-xs text-white/90 focus:outline-none focus:ring-1 focus:ring-fuchsia-400"
-                            value={workout.target_date ?? ''}
-                            onChange={(e) => handleUpdateTargetDate(e.target.value ? e.target.value : null)}
-                            disabled={isSavingTargetDate}
-                          />
-                          {isSavingTargetDate && <RefreshCw className="h-3 w-3 animate-spin text-white/70" />}
-                        </div>
-                        <div className="text-[10px] text-white/60">
-                          {workout.target_date
-                            ? `Planned for ${new Date(workout.target_date).toLocaleDateString()}`
-                            : 'No target date set'}
-                        </div>
-                        {targetDateError && (
-                          <div className="text-[10px] text-destructive">{targetDateError}</div>
-                        )}
-                      </div>
-                      <div className="flex flex-1 flex-col gap-1 rounded-md border border-transparent bg-white/5 p-2">
-                        <div className="flex items-center justify-between gap-1">
+                    <div className="p-2">
+                      <div className="grid gap-2 grid-cols-2">
+                        <div className="flex items-center justify-between rounded-md border border-transparent bg-white/5 p-2">
                           <div className="flex items-center gap-1 text-xs text-white/70">
-                            <Target className="h-3 w-3" />
-                            Focus
+                            <Clock className="h-3 w-3" />
+                            Duration
                           </div>
-                          {!isEditingFocus && (
-                            <button
-                              onClick={() => {
-                                setSelectedFocusIds(normalizeWorkoutFocus(workout.workout_focus))
-                                setIsEditingFocus(true)
-                              }}
-                              className="p-1 rounded-md text-white/60 hover:text-white/90 hover:bg-white/10 transition-colors"
-                              title="Edit focus"
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </button>
+                          <span className="text-xs font-medium text-white/90">{workout.total_duration_minutes}m</span>
+                        </div>
+                        <div className="flex items-center justify-between rounded-md border border-transparent bg-white/5 p-2">
+                          <div className="flex items-center gap-1 text-xs text-white/70">
+                            <BarChart3 className="h-3 w-3" />
+                            Exercises
+                          </div>
+                          <span className="text-xs font-medium text-white/90">{workout.workout_data.exercises.length}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className="flex flex-col gap-1 rounded-md border border-transparent bg-white/5 p-2">
+                          <div className="flex items-center gap-1 text-xs text-white/70">
+                            <Calendar className="h-3 w-3" />
+                            Target Date
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="date"
+                              className="w-full rounded-md bg-black/20 border border-transparent px-2 py-1 text-xs text-white/90 focus:outline-none focus:ring-1 focus:ring-fuchsia-400"
+                              value={workout.target_date ?? ''}
+                              onChange={(e) => handleUpdateTargetDate(e.target.value ? e.target.value : null)}
+                              disabled={isSavingTargetDate}
+                            />
+                            {isSavingTargetDate && <RefreshCw className="h-3 w-3 animate-spin text-white/70" />}
+                          </div>
+                          <div className="text-[10px] text-white/60">
+                            {workout.target_date
+                              ? `Planned for ${new Date(workout.target_date).toLocaleDateString()}`
+                              : 'No target date set'}
+                          </div>
+                          {targetDateError && (
+                            <div className="text-[10px] text-destructive">{targetDateError}</div>
                           )}
                         </div>
-
-                        {isEditingFocus ? (
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap gap-1.5">
-                              {focusOptions.map((option) => {
-                                const active = selectedFocusIds.includes(option.id)
-                                return (
-                                  <button
-                                    key={option.id}
-                                    onClick={() => handleFocusToggle(option.id)}
-                                    className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] transition-colors border ${
-                                      active
-                                        ? 'border-cyan-400/40 bg-cyan-500/20 text-cyan-100'
-                                        : 'border-transparent bg-white/10 text-white/60 hover:bg-white/15'
-                                    }`}
-                                  >
-                                    {option.label}
-                                    {active && <Check className="h-2.5 w-2.5" />}
-                                  </button>
-                                )
-                              })}
+                        <div className="flex flex-1 flex-col gap-1 rounded-md border border-transparent bg-white/5 p-2">
+                          <div className="flex items-center justify-between gap-1">
+                            <div className="flex items-center gap-1 text-xs text-white/70">
+                              <Target className="h-3 w-3" />
+                              Focus
                             </div>
-                            {focusError && (
-                              <div className="text-[10px] text-destructive">{focusError}</div>
-                            )}
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={handleUpdateFocus}
-                                disabled={isSavingFocus}
-                                className="flex items-center gap-1 rounded-md bg-cyan-500/20 px-2 py-1 text-[10px] text-cyan-100 hover:bg-cyan-500/30 transition-colors disabled:opacity-50"
-                              >
-                                {isSavingFocus ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
-                                Save
-                              </button>
+                            {!isEditingFocus && (
                               <button
                                 onClick={() => {
                                   setSelectedFocusIds(normalizeWorkoutFocus(workout.workout_focus))
-                                  setFocusError(null)
-                                  setIsEditingFocus(false)
+                                  setIsEditingFocus(true)
                                 }}
-                                disabled={isSavingFocus}
-                                className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[10px] text-white/60 hover:bg-white/15 transition-colors disabled:opacity-50"
+                                className="p-1 rounded-md text-white/60 hover:text-white/90 hover:bg-white/10 transition-colors"
+                                title="Edit focus"
                               >
-                                <X className="h-3 w-3" />
-                                Cancel
+                                <Pencil className="h-3 w-3" />
                               </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {normalizeWorkoutFocus(workout.workout_focus).slice(0, 3).map((focus, index) => (
-                              <span
-                                key={`${focus}-${index}`}
-                                className="text-[9px] px-1.5 py-0 rounded-full bg-cyan-500/20 text-cyan-300 capitalize"
-                              >
-                                {focus}
-                              </span>
-                            ))}
-                            {normalizeWorkoutFocus(workout.workout_focus).length === 0 && (
-                              <span className="text-[9px] text-white/50">No focus set</span>
                             )}
                           </div>
-                        )}
+
+                          {isEditingFocus ? (
+                            <div className="space-y-2">
+                              <div className="flex flex-wrap gap-1.5">
+                                {focusOptions.map((option) => {
+                                  const active = selectedFocusIds.includes(option.id)
+                                  return (
+                                    <button
+                                      key={option.id}
+                                      onClick={() => handleFocusToggle(option.id)}
+                                      className={`flex items-center gap-1 rounded-full px-2 py-1 text-[10px] transition-colors border ${
+                                        active
+                                          ? 'border-cyan-400/40 bg-cyan-500/20 text-cyan-100'
+                                          : 'border-transparent bg-white/10 text-white/60 hover:bg-white/15'
+                                      }`}
+                                    >
+                                      {option.label}
+                                      {active && <Check className="h-2.5 w-2.5" />}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                              {focusError && (
+                                <div className="text-[10px] text-destructive">{focusError}</div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={handleUpdateFocus}
+                                  disabled={isSavingFocus}
+                                  className="flex items-center gap-1 rounded-md bg-cyan-500/20 px-2 py-1 text-[10px] text-cyan-100 hover:bg-cyan-500/30 transition-colors disabled:opacity-50"
+                                >
+                                  {isSavingFocus ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                                  Save
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setSelectedFocusIds(normalizeWorkoutFocus(workout.workout_focus))
+                                    setFocusError(null)
+                                    setIsEditingFocus(false)
+                                  }}
+                                  disabled={isSavingFocus}
+                                  className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 text-[10px] text-white/60 hover:bg-white/15 transition-colors disabled:opacity-50"
+                                >
+                                  <X className="h-3 w-3" />
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {normalizeWorkoutFocus(workout.workout_focus).slice(0, 3).map((focus, index) => (
+                                <span
+                                  key={`${focus}-${index}`}
+                                  className="text-[9px] px-1.5 py-0 rounded-full bg-cyan-500/20 text-cyan-300 capitalize"
+                                >
+                                  {focus}
+                                </span>
+                              ))}
+                              {normalizeWorkoutFocus(workout.workout_focus).length === 0 && (
+                                <span className="text-[9px] text-white/50">No focus set</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <div className="rounded-md border border-transparent bg-white/5 p-2">
+                          <div className="flex items-center gap-1 text-[10px] text-white/70 mb-1">
+                            <Activity className="h-3 w-3" />
+                            Muscle Groups
+                          </div>
+                          <p className="text-xs text-white/90 line-clamp-1">{workout.muscle_groups_targeted}</p>
+                        </div>
+
+                        <div className="rounded-md border border-transparent bg-white/5 p-2">
+                          <div className="flex items-center gap-1 text-[10px] text-white/70 mb-1">
+                            <Zap className="h-3 w-3" />
+                            Equipment
+                          </div>
+                          <p className="text-xs text-white/90 line-clamp-1">{workout.equipment_needed}</p>
+                        </div>
                       </div>
                     </div>
+                  </div>
 
-                    <div className="mt-2 grid grid-cols-1 gap-2">
-                      <div className="rounded-md border border-transparent bg-white/5 p-2">
-                        <div className="flex items-center gap-1 text-[10px] text-white/70 mb-1">
-                          <Activity className="h-3 w-3" />
-                          Muscle Groups
-                        </div>
-                        <p className="text-xs text-white/90 line-clamp-1">{workout.muscle_groups_targeted}</p>
-                      </div>
-
-                      <div className="rounded-md border border-transparent bg-white/5 p-2">
-                        <div className="flex items-center gap-1 text-[10px] text-white/70 mb-1">
-                          <Zap className="h-3 w-3" />
-                          Equipment
-                        </div>
-                        <p className="text-xs text-white/90 line-clamp-1">{workout.equipment_needed}</p>
-                      </div>
-                    </div>
+                  {/* Muscle Map - Desktop: side, Mobile: below */}
+                  <div className="w-full md:w-44 rounded-lg border border-transparent bg-white/5 backdrop-blur-xl p-2">
+                    <MuscleMap 
+                      exercises={workout.workout_data.exercises} 
+                      className="h-48 md:h-full"
+                    />
                   </div>
                 </div>
               </motion.div>
