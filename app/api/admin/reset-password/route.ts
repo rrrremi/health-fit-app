@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { isAdmin } from '@/lib/utils/auth'
+import { z } from 'zod'
+
+const emailSchema = z.string().email('Invalid email format')
 
 export const dynamic = 'force-dynamic';
 
@@ -18,12 +20,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get email from request body
+    // Get and validate email from request body
     const { email } = await request.json()
 
     if (!email) {
       return NextResponse.json(
         { error: 'Email is required' },
+        { status: 400 }
+      )
+    }
+
+    // Validate email format
+    const emailValidation = emailSchema.safeParse(email)
+    if (!emailValidation.success) {
+      return NextResponse.json(
+        { error: 'Invalid email format' },
         { status: 400 }
       )
     }

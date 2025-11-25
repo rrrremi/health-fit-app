@@ -171,7 +171,8 @@ export async function generateWorkout(
     }
     
     // Make the OpenAI call with a timeout to avoid hanging the request on network issues
-    let response: any;
+    type ChatCompletion = Awaited<ReturnType<typeof openaiClient.chat.completions.create>>;
+    let response: ChatCompletion;
     try {
       response = await Promise.race([
         openaiClient.chat.completions.create({
@@ -190,11 +191,14 @@ export async function generateWorkout(
         console.log('Successfully received response from OpenAI');
       }
     } catch (apiError) {
-      console.error('Error calling OpenAI API:', apiError);
-      if (apiError instanceof Error) {
-        console.error('Error details:', apiError.message);
-        if ('status' in apiError) {
-          console.error('API status code:', (apiError as any).status);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error calling OpenAI API:', apiError);
+        if (apiError instanceof Error) {
+          console.error('Error details:', apiError.message);
+          const apiErr = apiError as Error & { status?: number };
+          if (apiErr.status) {
+            console.error('API status code:', apiErr.status);
+          }
         }
       }
       throw apiError;

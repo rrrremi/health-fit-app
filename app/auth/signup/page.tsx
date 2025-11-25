@@ -8,6 +8,7 @@ import AuthForm from '@/components/auth/AuthForm'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { User, Mail, Lock, UserPlus } from 'lucide-react'
+import { toast } from '@/lib/toast'
 
 export default function SignUp() {
   const router = useRouter()
@@ -41,17 +42,17 @@ export default function SignUp() {
       }
 
       if (data.session) {
+        toast.success('Account created successfully!')
         // Successfully signed up and logged in, redirect
         router.push('/protected/workouts')
         router.refresh()
       } else {
         // Email confirmation required
-        setError('Please check your email to confirm your account')
+        toast.info('Please check your email to confirm your account')
         setLoading(false)
       }
     } catch (err) {
       setError('An unexpected error occurred')
-      console.error(err)
       setLoading(false)
     }
   }

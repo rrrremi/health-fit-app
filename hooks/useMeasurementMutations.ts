@@ -1,7 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import type { MetricDetailResponse, MeasurementPublic } from '@/types/measurements';
+import { toast } from '@/lib/toast';
+import type { MetricDetailResponse, MeasurementPublic, MetricSummary } from '@/types/measurements';
+
+// Type for summary cache data
+interface SummaryCache {
+  metrics: MetricSummary[];
+}
 
 /**
  * Manages measurement mutations (update, delete) with optimistic updates
@@ -12,6 +17,15 @@ import type { MetricDetailResponse, MeasurementPublic } from '@/types/measuremen
 export function useMeasurementMutations(metric: string) {
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
   
   /**
    * Updates a measurement value with optimistic UI update
@@ -43,11 +57,11 @@ export function useMeasurementMutations(metric: string) {
       );
       
       // Update summary cache if this is the latest measurement
-      queryClient.setQueryData(['measurements', 'summary'], (old: any) => {
+      queryClient.setQueryData<SummaryCache>(['measurements', 'summary'], (old) => {
         if (!old?.metrics) return old;
         return {
           ...old,
-          metrics: old.metrics.map((m: any) =>
+          metrics: old.metrics.map((m) =>
             m.metric === metric && m.latest_date === measurement.measured_at
               ? { ...m, latest_value: newValue }
               : m
@@ -55,22 +69,25 @@ export function useMeasurementMutations(metric: string) {
         };
       });
       
-      // Make API call in background
+      // Make API call in background with abort support
       const payload = {
         value: newValue,
         unit: measurement.unit,
       };
-      console.log('Updating measurement:', { id, payload });
+      
+      // Cancel any pending request
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
       
       const response = await fetch(`/api/measurements/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: abortControllerRef.current.signal,
       });
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Update failed:', errorData);
         throw new Error(errorData.error || 'Failed to update');
       }
       
@@ -78,7 +95,10 @@ export function useMeasurementMutations(metric: string) {
       queryClient.invalidateQueries({ queryKey: ['measurements', 'detail', metric] });
       queryClient.invalidateQueries({ queryKey: ['measurements', 'summary'] });
     } catch (error) {
-      console.error('Update error:', error);
+      // Don't show error for aborted requests
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       
       // Rollback optimistic update on error
       if (previousDetailData) {
@@ -94,9 +114,9 @@ export function useMeasurementMutations(metric: string) {
   
   /**
    * Deletes a measurement with optimistic UI update
+   * Note: Call confirmDelete first to show confirmation modal
    */
   const deleteMeasurement = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this measurement?')) return;
     
     const previousDetailData = queryClient.getQueryData<MetricDetailResponse>([
       'measurements',
@@ -121,7 +141,7 @@ export function useMeasurementMutations(metric: string) {
       );
       
       // Update summary if needed (recalculate latest)
-      queryClient.setQueryData(['measurements', 'summary'], (old: any) => {
+      queryClient.setQueryData<SummaryCache>(['measurements', 'summary'], (old) => {
         if (!old?.metrics) return old;
         
         const remainingMeasurements =
@@ -131,7 +151,7 @@ export function useMeasurementMutations(metric: string) {
           // Remove metric from summary if no measurements left
           return {
             ...old,
-            metrics: old.metrics.filter((m: any) => m.metric !== metric),
+            metrics: old.metrics.filter((m) => m.metric !== metric),
           };
         }
         
@@ -142,7 +162,7 @@ export function useMeasurementMutations(metric: string) {
         
         return {
           ...old,
-          metrics: old.metrics.map((m: any) =>
+          metrics: old.metrics.map((m) =>
             m.metric === metric
               ? {
                   ...m,
@@ -155,9 +175,13 @@ export function useMeasurementMutations(metric: string) {
         };
       });
       
-      // Make API call in background
+      // Make API call in background with abort support
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
+      
       const response = await fetch(`/api/measurements/${id}`, {
         method: 'DELETE',
+        signal: abortControllerRef.current.signal,
       });
       
       if (!response.ok) throw new Error('Failed to delete');
@@ -166,7 +190,10 @@ export function useMeasurementMutations(metric: string) {
       queryClient.invalidateQueries({ queryKey: ['measurements', 'detail', metric] });
       queryClient.invalidateQueries({ queryKey: ['measurements', 'summary'] });
     } catch (error) {
-      console.error('Delete error:', error);
+      // Don't show error for aborted requests
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       
       // Rollback optimistic update on error
       if (previousDetailData) {
@@ -179,6 +206,31 @@ export function useMeasurementMutations(metric: string) {
       toast.error('Failed to delete measurement. Changes have been reverted.');
     } finally {
       setDeleting(null);
+    }
+  };
+
+  /**
+   * Request deletion confirmation - sets pending delete ID
+   * Use with ConfirmModal component
+   */
+  const confirmDelete = (id: string) => {
+    setPendingDeleteId(id);
+  };
+
+  /**
+   * Cancel pending deletion
+   */
+  const cancelDelete = () => {
+    setPendingDeleteId(null);
+  };
+
+  /**
+   * Execute pending deletion after confirmation
+   */
+  const executeDelete = async () => {
+    if (pendingDeleteId) {
+      await deleteMeasurement(pendingDeleteId);
+      setPendingDeleteId(null);
     }
   };
   
@@ -225,10 +277,10 @@ export function useMeasurementMutations(metric: string) {
       );
 
       // Optimistic update for summary - update latest value if this is newer
-      queryClient.setQueryData(['measurements', 'summary'], (old: any) => {
+      queryClient.setQueryData<SummaryCache>(['measurements', 'summary'], (old) => {
         if (!old?.metrics) return old;
 
-        const metricSummary = old.metrics.find((m: any) => m.metric === metric);
+        const metricSummary = old.metrics.find((m) => m.metric === metric);
         if (!metricSummary) return old;
 
         const measurementDate = new Date(data.measured_at);
@@ -238,7 +290,7 @@ export function useMeasurementMutations(metric: string) {
         if (measurementDate > currentLatestDate) {
           return {
             ...old,
-            metrics: old.metrics.map((m: any) =>
+            metrics: old.metrics.map((m) =>
               m.metric === metric
                 ? {
                     ...m, // Preserve all existing fields including healthy ranges
@@ -254,7 +306,7 @@ export function useMeasurementMutations(metric: string) {
         // Just increment count if not the latest
         return {
           ...old,
-          metrics: old.metrics.map((m: any) =>
+          metrics: old.metrics.map((m) =>
             m.metric === metric
               ? { ...m, point_count: m.point_count + 1 } // Preserve all existing fields
               : m
@@ -272,10 +324,15 @@ export function useMeasurementMutations(metric: string) {
         confidence: 0.95,
       };
 
+      // Cancel any pending request
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
+      
       const response = await fetch('/api/measurements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        signal: abortControllerRef.current.signal,
       });
 
       if (!response.ok) {
@@ -289,7 +346,10 @@ export function useMeasurementMutations(metric: string) {
 
       toast.success('Measurement added successfully');
     } catch (error) {
-      console.error('Create error:', error);
+      // Don't show error for aborted requests
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
 
       // Rollback optimistic update on error
       if (previousDetailData) {
@@ -309,5 +369,10 @@ export function useMeasurementMutations(metric: string) {
     deleteMeasurement,
     createMeasurement,
     deleting,
+    // New confirmation-based delete API
+    pendingDeleteId,
+    confirmDelete,
+    cancelDelete,
+    executeDelete,
   };
 }

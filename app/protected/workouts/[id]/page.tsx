@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import React, { useEffect, useState, useCallback, useMemo, useRef, memo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -9,7 +9,8 @@ import FocusTrap from 'focus-trap-react'
 import InlineEdit from '@/components/ui/InlineEdit'
 import ExerciseVideoButton from '@/components/workout/ExerciseVideoButton'
 import { SkeletonWorkoutDetail } from '@/components/ui/Skeleton'
-import { Workout } from '@/types/workout'
+import { Workout, Exercise, WorkoutData, WorkoutSetDetail } from '@/types/workout'
+import { toast } from '@/lib/toast'
 import DeleteWorkoutModal from '@/components/workout/DeleteWorkoutModal'
 import DeleteExerciseModal from '@/components/workout/DeleteExerciseModal'
 import WorkoutRating from '@/components/workout/WorkoutRating'
@@ -93,8 +94,23 @@ type EditingSetState = {
   notes: string | null
 }
 
-// Sortable Exercise Item Component
-function SortableExerciseItem({
+// Props interface for SortableExerciseItem
+interface SortableExerciseItemProps {
+  exercise: Exercise
+  index: number
+  isCompleted: boolean
+  selectedExerciseIndex: number | null
+  totalExercises: number
+  onExerciseClick: (index: number, e: React.MouseEvent) => void
+  onExerciseKeyDown: (event: React.KeyboardEvent<HTMLDivElement>, index: number) => void
+  onDeleteClick: (index: number) => void
+  onEditSets: (index: number) => void
+  onPrefetchSets?: (index: number) => void
+  isEditing: boolean
+}
+
+// Sortable Exercise Item Component - memoized to prevent unnecessary re-renders
+const SortableExerciseItem = memo(function SortableExerciseItem({
   exercise,
   index,
   isCompleted,
@@ -106,19 +122,7 @@ function SortableExerciseItem({
   onEditSets,
   onPrefetchSets,
   isEditing,
-}: {
-  exercise: any
-  index: number
-  isCompleted: boolean
-  selectedExerciseIndex: number | null
-  totalExercises: number
-  onExerciseClick: (index: number, e: React.MouseEvent) => void
-  onExerciseKeyDown: (event: React.KeyboardEvent<HTMLDivElement>, index: number) => void
-  onDeleteClick: (index: number) => void
-  onEditSets: (index: number) => void
-  onPrefetchSets?: (index: number) => void
-  isEditing: boolean
-}) {
+}: SortableExerciseItemProps) {
   const {
     attributes,
     listeners,
@@ -244,7 +248,7 @@ function SortableExerciseItem({
       )}
     </motion.div>
   )
-}
+})
 
 export default function WorkoutDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter()
@@ -282,8 +286,8 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
   const [isSavingSetDetails, setIsSavingSetDetails] = useState(false)
   const [setDetailsError, setSetDetailsError] = useState<string | null>(null)
   const [pendingSetCount, setPendingSetCount] = useState<number>(0)
-  const [previousWorkoutData, setPreviousWorkoutData] = useState<any>(null)
-  const prefetchCacheRef = useRef<Map<number, any>>(new Map())
+  const [previousWorkoutData, setPreviousWorkoutData] = useState<Workout | null>(null)
+  const prefetchCacheRef = useRef<Map<number, { workoutExerciseId: string; data: { entries: WorkoutSetDetail[] } }>>(new Map())
   const saveAbortControllerRef = useRef<AbortController | null>(null)
   const workoutCacheRef = useRef<Map<string, { workout: Workout; timestamp: number }>>(new Map())
   const WORKOUT_CACHE_DURATION = 2 * 60 * 1000 // 2 minutes
@@ -323,7 +327,9 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
         .order('order_index')
 
       if (error) {
-        console.error('Failed to load exercise completion state:', error)
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to load exercise completion state:', error)
+        }
         return
       }
 
@@ -362,30 +368,27 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
 
   const recomputeWorkoutStatus = useCallback(async () => {
     try {
-      const { data: exerciseRows, error: exerciseError } = await supabase
-        .from('workout_exercises')
-        .select('completed')
-        .eq('workout_id', params.id)
+      // Fetch both in parallel to reduce latency
+      const [exerciseResult, workoutResult] = await Promise.all([
+        supabase
+          .from('workout_exercises')
+          .select('completed')
+          .eq('workout_id', params.id),
+        supabase
+          .from('workouts')
+          .select('status, target_date')
+          .eq('id', params.id)
+          .single()
+      ])
 
-      if (exerciseError) {
-        console.error('Failed to evaluate workout completion state:', exerciseError)
+      const { data: exerciseRows, error: exerciseError } = exerciseResult
+      const { data: workoutRow, error: workoutError } = workoutResult
+
+      if (exerciseError || !exerciseRows) {
         return
       }
-
-      if (!exerciseRows) {
-        return
-      }
-
-      const { data: workoutRow, error: workoutError } = await supabase
-        .from('workouts')
-        .select('status, target_date')
-        .eq('id', params.id)
-        .single()
 
       if (workoutError || !workoutRow) {
-        if (workoutError) {
-          console.error('Failed to load workout for status recompute:', workoutError)
-        }
         return
       }
 
@@ -431,9 +434,9 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
       if (updatedWorkout) {
         setWorkout(updatedWorkout as Workout)
       }
-    } catch (statusError: any) {
-      console.error('Error updating workout status based on exercises:', statusError)
-      setError(statusError.message || 'Failed to update workout status')
+    } catch (statusError: unknown) {
+      const err = statusError as Error
+      setError(err.message || 'Failed to update workout status')
       setTimeout(() => setError(null), 3000)
     }
   }, [params.id, supabase])
@@ -463,10 +466,12 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
       // Update local state with the new workout data
       setWorkout(data.workout);
       setIsEditingName(false);
+      toast.success('Workout name updated');
       
     } catch (error) {
-      console.error('Error updating workout name:', error);
-      setNameError(error instanceof Error ? error.message : 'Failed to update workout name');
+      const message = error instanceof Error ? error.message : 'Failed to update workout name';
+      setNameError(message);
+      toast.error(message);
     } finally {
       setIsSavingName(false);
     }
@@ -495,8 +500,11 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
       }
 
       setWorkout(data.workout)
+      toast.success('Target date updated')
     } catch (error) {
-      setTargetDateError(error instanceof Error ? error.message : 'Failed to update target date')
+      const message = error instanceof Error ? error.message : 'Failed to update target date'
+      setTargetDateError(message)
+      toast.error(message)
     } finally {
       setIsSavingTargetDate(false)
     }
@@ -516,7 +524,9 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
         throw new Error(data.error || 'Failed to delete workout');
       }
 
-      // First navigate to the workouts list page
+      toast.success('Workout deleted')
+      
+      // Navigate to the workouts list page
       router.push('/protected/workouts')
 
       // Add a small delay before refreshing to ensure navigation completes
@@ -524,14 +534,10 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
         router.refresh()
       }, 100)
     } catch (error) {
-      console.error('Error deleting workout:', error)
-      setError(error instanceof Error ? error.message : 'Error deleting workout')
+      const message = error instanceof Error ? error.message : 'Error deleting workout'
+      setError(message)
+      toast.error(message)
       setIsDeleting(false)
-
-      // Show error for 3 seconds, then allow retry
-      setTimeout(() => {
-        setError(null)
-      }, 3000)
     }
   }
 
@@ -595,9 +601,11 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
 
       setWorkout(data.workout)
       setIsEditingFocus(false)
-    } catch (updateError: any) {
-      console.error('Error updating focus:', updateError)
-      setFocusError(updateError.message || 'Failed to update focus')
+      toast.success('Workout focus updated')
+    } catch (updateError: unknown) {
+      const message = (updateError as Error).message || 'Failed to update focus'
+      setFocusError(message)
+      toast.error(message)
     } finally {
       setIsSavingFocus(false)
     }
@@ -660,16 +668,16 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
       .eq('workout_id', params.id)
 
     if (updateError) {
-      console.error('Failed to update exercise completion state:', updateError)
       setCompletedExercises(prev => ({
         ...prev,
         [index]: { ...prev[index], completed: !nextCompleted }
       }))
-      setError(updateError.message || 'Failed to update exercise status')
-      setTimeout(() => setError(null), 3000)
+      toast.error('Failed to update exercise status')
       return
     }
 
+    // Show subtle feedback for completion toggle
+    toast.success(nextCompleted ? 'Exercise completed' : 'Exercise marked incomplete')
     await refreshCompletionState()
     await recomputeWorkoutStatus()
   }, [completedExercises, completionLoaded, params.id, recomputeWorkoutStatus, refreshCompletionState, supabase])
@@ -696,8 +704,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
   const handleDeleteExerciseClick = useCallback(async (index: number) => {
     // Prevent deleting the last exercise
     if (workout?.workout_data.exercises.length === 1) {
-      setError('Cannot delete the last exercise. A workout must have at least one exercise.')
-      setTimeout(() => setError(null), 3000)
+      toast.warning('Cannot delete the last exercise')
       return
     }
     
@@ -715,9 +722,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
           .order('order_index')
         
         if (error || !data) {
-          console.error('Failed to fetch workout_exercises:', error)
-          setError('Unable to delete exercise. Please refresh the page and try again.')
-          setTimeout(() => setError(null), 3000)
+          toast.error('Unable to delete exercise. Please refresh.')
           return
         }
         
@@ -725,25 +730,19 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
         const exerciseRow = data.find(row => row.order_index === index)
         
         if (!exerciseRow) {
-          console.error('No workout_exercise found with order_index:', index, 'Available:', data)
-          setError('Unable to delete exercise. Please refresh the page and try again.')
-          setTimeout(() => setError(null), 3000)
+          toast.error('Unable to delete exercise. Please refresh.')
           return
         }
         
         workoutExerciseId = exerciseRow.id
       } catch (err) {
-        console.error('Error fetching workout_exercise ID:', err)
-        setError('Unable to delete exercise. Please refresh the page and try again.')
-        setTimeout(() => setError(null), 3000)
+        toast.error('Unable to delete exercise. Please refresh.')
         return
       }
     }
     
     if (!workoutExerciseId || !exerciseName) {
-      console.error('Missing data for delete:', { index, workoutExerciseId, exerciseName, completedExercises })
-      setError('Unable to delete exercise. Please refresh the page and try again.')
-      setTimeout(() => setError(null), 3000)
+      toast.error('Unable to delete exercise. Please refresh.')
       return
     }
     
@@ -786,17 +785,16 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
       
       // Replace with server response
       setWorkout(data.workout)
+      toast.success('Exercise deleted')
       
       // Refresh completion state
       await refreshCompletionState()
       await recomputeWorkoutStatus()
       
     } catch (err) {
-      console.error('Error deleting exercise:', err)
       // Rollback on error
       setWorkout(workout)
-      setError(err instanceof Error ? err.message : 'Failed to delete exercise')
-      setTimeout(() => setError(null), 3000)
+      toast.error(err instanceof Error ? err.message : 'Failed to delete exercise')
     } finally {
       setIsDeletingExercise(false)
       setShowDeleteExerciseModal(false)
@@ -835,8 +833,9 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
         }
       }))
       
-      refreshCompletionState().catch(console.error)
-      recomputeWorkoutStatus().catch(console.error)
+      toast.success('Exercise added')
+      refreshCompletionState().catch(() => {})
+      recomputeWorkoutStatus().catch(() => {})
     } else {
       // Fallback: Full refresh
       try {
@@ -849,12 +848,11 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
         if (error) throw error
 
         setWorkout(data)
-        refreshCompletionState().catch(console.error)
-        recomputeWorkoutStatus().catch(console.error)
+        toast.success('Exercise added')
+        refreshCompletionState().catch(() => {})
+        recomputeWorkoutStatus().catch(() => {})
       } catch (error) {
-        console.error('Error refreshing workout:', error)
-        setError('Failed to refresh workout')
-        setTimeout(() => setError(null), 3000)
+        toast.error('Failed to refresh workout')
       }
     }
   }, [params.id, workout, supabase])
@@ -1136,13 +1134,13 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
         throw new Error(data.error || 'Failed to copy workout')
       }
       
+      toast.success('Workout copied successfully')
+      
       // Navigate to the new workout
       router.push(`/protected/workouts/${data.workout.id}`)
       router.refresh()
     } catch (err) {
-      console.error('Error copying workout:', err)
-      setError(err instanceof Error ? err.message : 'Failed to copy workout')
-      setTimeout(() => setError(null), 3000)
+      toast.error(err instanceof Error ? err.message : 'Failed to copy workout')
     } finally {
       setIsCopying(false)
       setShowCopyModal(false)
@@ -1200,12 +1198,11 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
       
       // Refresh completion state with new order
       await refreshCompletionState()
+      toast.success('Exercises reordered')
     } catch (err) {
-      console.error('Error reordering exercises:', err)
       // Rollback on error
       setWorkout(workout)
-      setError(err instanceof Error ? err.message : 'Failed to reorder exercises')
-      setTimeout(() => setError(null), 3000)
+      toast.error(err instanceof Error ? err.message : 'Failed to reorder exercises')
     } finally {
       setIsReordering(false)
     }

@@ -11,6 +11,7 @@ import { muscleGroups, mapToSimplifiedCategories } from '@/lib/data/muscleGroups
 import { motion } from 'framer-motion'
 import { Dumbbell, Sparkles, Play, Settings, ChevronLeft, Zap, Target, Clock, BarChart3, CheckCircle, Activity, RefreshCw } from 'lucide-react'
 import SimilarWorkoutSuggestions from '@/components/workout/SimilarWorkoutSuggestions';
+import { toast } from '@/lib/toast';
 
 // Dynamically import the ProgressiveWorkoutGeneration component
 const ProgressiveWorkoutGeneration = dynamic(
@@ -322,6 +323,8 @@ export default function GenerateWorkoutPage() {
         // Hide progressive loading
         setShowProgressiveLoading(false);
 
+        toast.success('Workout generated successfully!');
+        
         // Redirect to the workout details page without leaving the generator in history
         router.replace(`/protected/workouts/${data.workoutId}`);
       } else if (data) {
@@ -330,7 +333,9 @@ export default function GenerateWorkoutPage() {
         throw new Error('No response data received');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+      setError(message);
+      toast.error(message);
       setIsGenerating(false);
       setShowProgressiveLoading(false);
     }

@@ -61,7 +61,8 @@ export class RateLimiter {
 
         if (error) {
           console.error('Rate limit upsert error:', error);
-          return { allowed: true }; // Fail open on database errors
+          // Fail closed on database errors for security - deny the request
+          return { allowed: false, resetAt: Date.now() + 60000, remaining: 0 };
         }
 
         return {
@@ -89,7 +90,8 @@ export class RateLimiter {
 
       if (error) {
         console.error('Rate limit update error:', error);
-        return { allowed: true }; // Fail open
+        // Fail closed on database errors for security
+        return { allowed: false, resetAt: Date.now() + 60000, remaining: 0 };
       }
 
       return {
@@ -100,7 +102,8 @@ export class RateLimiter {
 
     } catch (error) {
       console.error('Rate limiting error:', error);
-      return { allowed: true }; // Fail open on any error
+      // Fail closed on any error for security
+      return { allowed: false, resetAt: Date.now() + 60000, remaining: 0 };
     }
   }
 

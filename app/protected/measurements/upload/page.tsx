@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import { Upload, ChevronLeft, Camera, FileImage, Loader2, CheckCircle, AlertCircle, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { normalizeMetricName, validateMetricName as validateMetricNameUtil } from '@/lib/metric-normalization-client'
+import { toast } from '@/lib/toast'
 
 type UploadStep = 'select' | 'uploading' | 'processing' | 'review' | 'saving' | 'success'
 
@@ -285,15 +286,17 @@ export default function UploadMeasurementPage() {
       if (insertError) throw insertError
 
       setStep('success')
+      toast.success('Measurements saved successfully')
       
-      // Redirect after 2 seconds with refresh parameter
+      // Redirect after 1.5 seconds with refresh parameter
       setTimeout(() => {
         router.push('/protected/measurements?refresh=true')
-      }, 2000)
+      }, 1500)
 
-    } catch (err: any) {
-      console.error('Save error:', err)
-      setError(err.message || 'Failed to save measurements')
+    } catch (err: unknown) {
+      const message = (err as Error).message || 'Failed to save measurements'
+      setError(message)
+      toast.error(message)
       setStep('review')
     }
   }

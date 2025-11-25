@@ -13,10 +13,12 @@ interface CacheEntry<T> {
 class MemoryCache {
   private cache: Map<string, CacheEntry<any>>;
   private cleanupInterval: NodeJS.Timeout | null;
+  private readonly maxSize: number;
 
-  constructor() {
+  constructor(maxSize: number = 1000) {
     this.cache = new Map();
     this.cleanupInterval = null;
+    this.maxSize = maxSize;
     this.startCleanup();
   }
 
@@ -43,6 +45,14 @@ class MemoryCache {
    * Set value in cache with TTL (time to live) in seconds
    */
   set<T>(key: string, data: T, ttlSeconds: number = 300): void {
+    // Evict oldest entries if cache is full
+    if (this.cache.size >= this.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      if (oldestKey) {
+        this.cache.delete(oldestKey);
+      }
+    }
+    
     const expiresAt = Date.now() + (ttlSeconds * 1000);
     this.cache.set(key, { data, expiresAt });
   }

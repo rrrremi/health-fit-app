@@ -1,17 +1,9 @@
 "use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 
 export default function ProtectedHome() {
-  const router = useRouter();
-  
-  useEffect(() => {
-    // Redirect to dashboard if needed
-    // router.push('/protected/dashboard');
-  }, [router]);
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">

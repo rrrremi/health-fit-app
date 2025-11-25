@@ -34,8 +34,10 @@ export async function POST(request: NextRequest) {
     // Parse request body
     const body: CreateWorkoutRequest = await request.json()
     
-    console.log('Creating workout for user:', user.id)
-    console.log('Request body:', JSON.stringify(body, null, 2))
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Creating workout for user:', user.id)
+      console.log('Request body:', JSON.stringify(body, null, 2))
+    }
     
     // Validation
     if (!body.name || body.name.trim().length === 0) {
@@ -151,22 +153,30 @@ export async function POST(request: NextRequest) {
     }
 
     // Create workout_exercises entries
-    // First, look up exercise IDs from the exercises table
-    const exercisePromises = body.exercises.map(async (exercise) => {
-      const { data, error } = await supabase
-        .from('exercises')
-        .select('id')
-        .eq('name', exercise.name)
-        .single()
-      
-      if (error || !data) {
-        console.error(`Exercise not found: ${exercise.name}`, error)
-        return null
+    // Batch lookup exercise IDs to avoid N+1 queries
+    const exerciseNames = body.exercises.map(e => e.name)
+    const { data: exercisesData, error: exercisesLookupError } = await supabase
+      .from('exercises')
+      .select('id, name')
+      .in('name', exerciseNames)
+    
+    if (exercisesLookupError) {
+      console.error('Error looking up exercises:', exercisesLookupError)
+    }
+    
+    // Create a map for quick lookup
+    const exerciseNameToId = new Map<string, string>()
+    if (exercisesData) {
+      exercisesData.forEach(ex => exerciseNameToId.set(ex.name, ex.id))
+    }
+    
+    const exerciseIds = body.exercises.map(exercise => {
+      const id = exerciseNameToId.get(exercise.name)
+      if (!id && process.env.NODE_ENV === 'development') {
+        console.log(`Exercise not found: ${exercise.name}`)
       }
-      return data.id
+      return id || null
     })
-
-    const exerciseIds = await Promise.all(exercisePromises)
     
     // Filter out any null values (exercises not found)
     const workoutExercises = body.exercises

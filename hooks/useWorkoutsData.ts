@@ -44,7 +44,8 @@ export function useWorkoutsData() {
         .from('workouts')
         .select('id, name, created_at, total_duration_minutes, muscle_focus, workout_focus, workout_data, target_date, status, rating')
         .eq('user_id', userData!.user.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(100); // Pagination: limit to 100 most recent workouts
       
       if (error) throw error;
       return data as WorkoutListItem[];

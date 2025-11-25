@@ -35,23 +35,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const supabase = createClient();
 
   useEffect(() => {
-    // Get initial session
-    const getSession = async () => {
+    // Get initial user - using getUser() instead of getSession() for security
+    // getSession() reads from local storage and can be spoofed
+    // getUser() validates the session with the server
+    const initializeAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { user }, error } = await supabase.auth.getUser();
         if (error) {
-          console.error('Error getting session:', error);
+          console.error('Error getting user:', error);
+          setUser(null);
         } else {
-          setUser(session?.user ?? null);
+          setUser(user);
         }
       } catch (error) {
-        console.error('Error in getSession:', error);
+        console.error('Error in initializeAuth:', error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
     };
 
-    getSession();
+    initializeAuth();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

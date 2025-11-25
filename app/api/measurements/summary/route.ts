@@ -39,8 +39,30 @@ export async function GET() {
           throw error;
         }
 
+        // Define the row type from RPC response
+        interface MeasurementRow {
+          metric: string;
+          display_name: string | null;
+          category: string | null;
+          latest_value: number;
+          unit: string;
+          latest_date: string;
+          source: string;
+          confidence: number | null;
+          sparkline_points: Array<{ value: number; date: string }> | null;
+          point_count: number | null;
+          change_pct: number | null;
+          trend_direction: string | null;
+          min_value: number | null;
+          max_value: number | null;
+          healthy_min_male: number | null;
+          healthy_max_male: number | null;
+          healthy_min_female: number | null;
+          healthy_max_female: number | null;
+        }
+
         // Transform data - display_name and category now come from RPC function
-        const metrics: MetricSummary[] = (data || []).map((row: any) => {
+        const metrics: MetricSummary[] = (data || []).map((row: MeasurementRow) => {
           const healthStatus = calculateHealthStatus(row.latest_value, {
             healthyMin: row.healthy_min_male,
             healthyMax: row.healthy_max_male,
@@ -85,10 +107,11 @@ export async function GET() {
       ...(process.env.NODE_ENV === 'development' && { query_time_ms: queryTime })
     });
 
-  } catch (error: any) {
-    logger.error('Error fetching measurements summary:', error);
+  } catch (error: unknown) {
+    const err = error as Error;
+    logger.error('Error fetching measurements summary:', err);
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { error: err.message || 'Internal server error' },
       { status: 500 }
     );
   }

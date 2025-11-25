@@ -8,6 +8,7 @@ import AuthForm from '@/components/auth/AuthForm'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { Mail, Lock, LogIn } from 'lucide-react'
+import { toast } from '@/lib/toast'
 
 export default function Login() {
   const router = useRouter()
@@ -15,14 +16,13 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [rememberMe, setRememberMe] = useState(false)
   const supabase = createClient()
 
-  // Check if already logged in
+  // Check if already logged in - using getUser() for secure server validation
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
         router.push('/protected/workouts')
       }
     }
@@ -54,6 +54,7 @@ export default function Login() {
       }
 
       if (data.session) {
+        toast.success('Welcome back!')
         // Successfully logged in, use router for smoother navigation
         router.push('/protected/workouts')
         router.refresh()
@@ -63,7 +64,6 @@ export default function Login() {
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
-      console.error(err)
       setLoading(false)
     }
   }
@@ -112,29 +112,13 @@ export default function Login() {
           icon={<Lock size={14} />}
         />
 
-        <div className="flex items-center justify-between py-0.5 mt-0.5">
-          <div className="flex items-center">
-            <input
-              id="remember-me"
-              name="remember-me"
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-3 w-3 rounded bg-white/5 border-white/20 text-white/90 focus:ring-white/30"
-            />
-            <label htmlFor="remember-me" className="ml-1.5 block text-xs text-white/70">
-              Remember me
-            </label>
-          </div>
-
-          <div>
-            <Link 
-              href="/auth/reset-password" 
-              className="text-xs text-white/60 hover:text-white/90 transition-colors font-light"
-            >
-              Forgot password?
-            </Link>
-          </div>
+        <div className="flex items-center justify-end py-0.5 mt-0.5">
+          <Link 
+            href="/auth/reset-password" 
+            className="text-xs text-white/60 hover:text-white/90 transition-colors font-light"
+          >
+            Forgot password?
+          </Link>
         </div>
 
         <Button

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import AuthForm from '@/components/auth/AuthForm'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { toast } from '@/lib/toast'
 
 export default function ResetPassword() {
   const [email, setEmail] = useState('')
@@ -30,9 +31,9 @@ export default function ResetPassword() {
       }
 
       setSuccess(true)
+      toast.success('Password reset email sent')
     } catch (err) {
       setError('An unexpected error occurred')
-      console.error(err)
     } finally {
       setLoading(false)
     }

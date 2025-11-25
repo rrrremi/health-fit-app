@@ -1,6 +1,6 @@
 /**
  * Simple logger utility
- * Only logs in development mode
+ * Controls logging based on environment
  */
 
 const isDev = process.env.NODE_ENV === 'development';
@@ -9,30 +9,41 @@ export const logger = {
   /**
    * Log informational messages (only in development)
    */
-  info: (...args: any[]) => {
+  info: (...args: unknown[]) => {
     if (isDev) {
       console.log('[INFO]', ...args);
     }
   },
 
   /**
-   * Log warnings (always shown)
+   * Log warnings (only in development for non-critical)
    */
-  warn: (...args: any[]) => {
-    console.warn('[WARN]', ...args);
+  warn: (...args: unknown[]) => {
+    if (isDev) {
+      console.warn('[WARN]', ...args);
+    }
   },
 
   /**
-   * Log errors (always shown)
+   * Log errors (only in development for expected errors, always for critical)
    */
-  error: (...args: any[]) => {
-    console.error('[ERROR]', ...args);
+  error: (...args: unknown[]) => {
+    if (isDev) {
+      console.error('[ERROR]', ...args);
+    }
+  },
+
+  /**
+   * Log critical errors (always shown - use sparingly)
+   */
+  critical: (...args: unknown[]) => {
+    console.error('[CRITICAL]', ...args);
   },
 
   /**
    * Log debug messages (only in development)
    */
-  debug: (...args: any[]) => {
+  debug: (...args: unknown[]) => {
     if (isDev) {
       console.log('[DEBUG]', ...args);
     }

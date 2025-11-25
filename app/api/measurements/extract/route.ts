@@ -83,7 +83,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Fetching image from:', imageUrl);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Fetching image from:', imageUrl);
+    }
 
     // Download image and convert to base64 to avoid OpenAI timeout issues
     let imageBase64: string;
@@ -106,7 +108,9 @@ export async function POST(request: NextRequest) {
       const imageType = imageUrl.match(/\.(jpg|jpeg|png|webp)$/i)?.[1] || 'png';
       const dataUrl = `data:image/${imageType};base64,${imageBase64}`;
       
-      console.log(`Image downloaded successfully: ${buffer.length} bytes, type: ${imageType}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Image downloaded successfully: ${buffer.length} bytes, type: ${imageType}`);
+      }
 
       // Call OpenAI GPT-4o Vision API with base64 image
       const response = await openai.chat.completions.create({
@@ -134,52 +138,72 @@ export async function POST(request: NextRequest) {
 
       return await processOpenAIResponse(response, user.id, supabase);
 
-    } catch (fetchError: any) {
-      console.error('Error fetching image:', fetchError);
+    } catch (fetchError: unknown) {
+      const errorMessage = fetchError instanceof Error ? fetchError.message : 'Unknown error';
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error fetching image:', fetchError);
+      }
       return NextResponse.json(
-        { error: `Failed to download image: ${fetchError.message}` },
+        { error: `Failed to download image: ${errorMessage}` },
         { status: 500 }
       );
     }
-  } catch (error: any) {
-    // Detailed error logging
-    console.error('=== MEASUREMENT EXTRACTION ERROR ===');
-    console.error('Error type:', error.constructor.name);
-    console.error('Error code:', error.code);
-    console.error('Error message:', error.message);
-    console.error('Full error:', JSON.stringify(error, null, 2));
-    console.error('Error stack:', error.stack);
-    console.error('====================================');
+  } catch (error: unknown) {
+    // Detailed error logging in development only
+    const err = error as Error & { code?: string; type?: string };
+    if (process.env.NODE_ENV === 'development') {
+      console.error('=== MEASUREMENT EXTRACTION ERROR ===');
+      console.error('Error type:', err.constructor?.name);
+      console.error('Error code:', err.code);
+      console.error('Error message:', err.message);
+      console.error('Error stack:', err.stack);
+      console.error('====================================');
+    }
 
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to extract measurements',
-        code: error.code,
-        type: error.type
+        error: err.message || 'Failed to extract measurements',
+        code: err.code,
+        type: err.type
       },
       { status: 500 }
     );
   }
 }
 
-async function processOpenAIResponse(response: any, userId: string, supabase: any) {
+interface OpenAIResponse {
+  choices: Array<{
+    message: {
+      content: string | null;
+    };
+  }>;
+}
+
+interface SupabaseClient {
+  from: (table: string) => unknown;
+}
+
+async function processOpenAIResponse(response: OpenAIResponse, userId: string, supabase: SupabaseClient) {
   try {
 
     const content = response.choices[0]?.message?.content;
     
-    // Log the raw response for debugging
-    console.log('=== OPENAI RESPONSE ===');
-    console.log('Full response:', JSON.stringify(response, null, 2));
-    console.log('Content:', content);
-    console.log('======================');
+    // Log the raw response for debugging (development only)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== OPENAI RESPONSE ===');
+      console.log('Content length:', content?.length);
+      console.log('======================');
+    }
     
     if (!content) {
-      console.error('OpenAI returned no content. Full response:', response);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('OpenAI returned no content');
+      }
       throw new Error('No response from OpenAI');
     }
 
     // Parse the JSON response (strip markdown code blocks if present)
-    let parsedData: any;
+    let parsedData: ExtractedMeasurement[] | { measurements: ExtractedMeasurement[] };
     try {
       // Remove markdown code blocks (```json ... ```)
       let cleanContent = content.trim();
@@ -191,10 +215,13 @@ async function processOpenAIResponse(response: any, userId: string, supabase: an
       }
       
       parsedData = JSON.parse(cleanContent);
-      console.log('Parsed data:', JSON.stringify(parsedData, null, 2));
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Parsed measurements count:', Array.isArray(parsedData) ? parsedData.length : parsedData.measurements?.length);
+      }
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response. Raw content:', content);
-      console.error('Parse error:', parseError);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to parse OpenAI response:', parseError);
+      }
       throw new Error('Invalid JSON response from AI');
     }
 
@@ -215,16 +242,14 @@ async function processOpenAIResponse(response: any, userId: string, supabase: an
       supabase
     );
 
-    // Log warnings if any
-    if (warnings.length > 0) {
-      console.log('Normalization warnings:', warnings);
-    }
-
-    if (duplicates.length > 0) {
-      console.log(`Found ${duplicates.length} potential duplicates with existing measurements`);
-      duplicates.forEach(dup => {
-        console.log(`  ${dup.confidence.toUpperCase()}: "${dup.extracted.metric}" (${dup.extracted.value} ${dup.extracted.unit}) ↔ "${dup.existing.display_name}" (${dup.existing.latest_value} ${dup.existing.unit}) - ${Math.round(dup.similarity * 100)}% similar`);
-      });
+    // Log warnings if any (development only)
+    if (process.env.NODE_ENV === 'development') {
+      if (warnings.length > 0) {
+        console.log('Normalization warnings:', warnings);
+      }
+      if (duplicates.length > 0) {
+        console.log(`Found ${duplicates.length} potential duplicates`);
+      }
     }
 
     if (validatedMeasurements.length === 0) {
@@ -242,13 +267,14 @@ async function processOpenAIResponse(response: any, userId: string, supabase: an
       warnings: warnings.length > 0 ? warnings : undefined
     });
 
-  } catch (error: any) {
-    console.error('=== PROCESS OPENAI RESPONSE ERROR ===');
-    console.error('Error:', error);
-    console.error('====================================');
+  } catch (error: unknown) {
+    const err = error as Error & { code?: string; type?: string; status?: number };
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Process OpenAI response error:', err.message);
+    }
     
     // Handle specific OpenAI errors
-    if (error.code === 'insufficient_quota') {
+    if (err.code === 'insufficient_quota') {
       return NextResponse.json(
         { 
           error: 'AI service quota exceeded. Please add credits to your OpenAI account.',
@@ -258,7 +284,7 @@ async function processOpenAIResponse(response: any, userId: string, supabase: an
       );
     }
 
-    if (error.code === 'model_not_found') {
+    if (err.code === 'model_not_found') {
       return NextResponse.json(
         { 
           error: 'GPT-4o model not available. Your API key may not have access to vision models.',
@@ -268,7 +294,7 @@ async function processOpenAIResponse(response: any, userId: string, supabase: an
       );
     }
 
-    if (error.code === 'invalid_api_key') {
+    if (err.code === 'invalid_api_key') {
       return NextResponse.json(
         { 
           error: 'Invalid OpenAI API key. Please check your .env.local file.',
@@ -278,18 +304,18 @@ async function processOpenAIResponse(response: any, userId: string, supabase: an
       );
     }
 
-    if (error.status === 401) {
+    if (err.status === 401) {
       return NextResponse.json(
         { 
           error: 'OpenAI authentication failed. Check your API key.',
           code: 'auth_failed',
-          details: error.message
+          details: err.message
         },
         { status: 401 }
       );
     }
 
-    if (error.status === 429) {
+    if (err.status === 429) {
       return NextResponse.json(
         { 
           error: 'Rate limit exceeded. Please wait a moment and try again.',
@@ -302,10 +328,10 @@ async function processOpenAIResponse(response: any, userId: string, supabase: an
     // Return detailed error for debugging
     return NextResponse.json(
       { 
-        error: error.message || 'Failed to extract measurements',
-        code: error.code || 'unknown_error',
-        type: error.type || 'unknown',
-        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        error: err.message || 'Failed to extract measurements',
+        code: err.code || 'unknown_error',
+        type: err.type || 'unknown',
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
       },
       { status: 500 }
     );

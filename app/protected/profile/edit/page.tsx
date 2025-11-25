@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, User, Mail, Save, X } from 'lucide-react'
 import Link from 'next/link'
 import { Profile, Sex } from '@/types/database'
+import { toast } from '@/lib/toast'
 
 export default function EditProfilePage() {
   const router = useRouter()
@@ -47,8 +48,7 @@ export default function EditProfilePage() {
         setAge(profileData?.age || '')
         setSex(profileData?.sex || '')
       } catch (err) {
-        console.error('Error fetching profile data:', err)
-        setError('Failed to load profile data')
+        toast.error('Failed to load profile data')
       } finally {
         setLoading(false)
       }
@@ -89,15 +89,15 @@ export default function EditProfilePage() {
       })
 
       setSuccess(true)
+      toast.success('Profile updated successfully')
       
       // Redirect back to profile after a short delay
       setTimeout(() => {
         router.push('/protected/profile')
         router.refresh()
-      }, 1500)
+      }, 1000)
     } catch (err) {
-      console.error('Error updating profile:', err)
-      setError('Failed to update profile')
+      toast.error('Failed to update profile')
     } finally {
       setSaving(false)
     }

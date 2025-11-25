@@ -74,7 +74,25 @@ export default function RootLayout({
                 <Footer />
               </div>
             </div>
-            <Toaster position="top-right" richColors closeButton />
+            <Toaster 
+              position="top-center" 
+              richColors 
+              closeButton
+              toastOptions={{
+                duration: 4000,
+                className: 'toast-base',
+                style: {
+                  background: 'rgba(15, 23, 42, 0.95)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  backdropFilter: 'blur(8px)',
+                  fontSize: '13px',
+                  padding: '12px 16px',
+                },
+              }}
+              expand={false}
+              gap={8}
+            />
           </AuthProvider>
         </ReactQueryProvider>
       </body>
