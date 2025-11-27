@@ -287,6 +287,92 @@ export function mapLegacyMuscle(legacyName: string): string | null {
   return mappings[lower] || normalizeToGroup(lower)
 }
 
+// --- EXERCISE MUSCLE EXTRACTION ---
+
+interface ExerciseWithMuscles {
+  primary_muscles?: string[]
+  secondary_muscles?: string[]
+}
+
+/**
+ * Extract all unique muscle groups from exercises
+ * Returns both group-level summary and sub-muscle details
+ */
+export function extractMusclesFromExercises(exercises: ExerciseWithMuscles[]): {
+  groups: string[]           // Unique group IDs (e.g., ['chest', 'back', 'shoulders'])
+  subMuscles: string[]       // Unique sub-muscle IDs (e.g., ['mid_chest', 'lats', 'front_delts'])
+  formatted: string          // Human-readable string (e.g., "Chest, Back, Shoulders")
+  detailed: string           // Detailed string (e.g., "Mid Chest, Lats, Front Delts")
+} {
+  const groupSet = new Set<string>()
+  const subMuscleSet = new Set<string>()
+  
+  for (const exercise of exercises) {
+    const allMuscles = [
+      ...(exercise.primary_muscles || []),
+      ...(exercise.secondary_muscles || [])
+    ]
+    
+    for (const muscle of allMuscles) {
+      if (!muscle) continue
+      
+      const normalized = normalizeToSubMuscle(muscle)
+      if (normalized) {
+        groupSet.add(normalized.groupId)
+        subMuscleSet.add(normalized.subMuscleId)
+      }
+    }
+  }
+  
+  const groups = Array.from(groupSet)
+  const subMuscles = Array.from(subMuscleSet)
+  
+  // Format group names nicely
+  const formatted = groups
+    .map(id => getGroupById(id)?.label || id)
+    .join(', ')
+  
+  // Format sub-muscle names nicely
+  const detailed = subMuscles
+    .map(id => {
+      for (const group of MUSCLE_TAXONOMY) {
+        const sub = group.subMuscles.find(sm => sm.id === id)
+        if (sub) return sub.label
+      }
+      return id
+    })
+    .join(', ')
+  
+  return { groups, subMuscles, formatted, detailed }
+}
+
+/**
+ * Get muscle intensity map from exercises (for MuscleMap component)
+ */
+export function getMuscleIntensityFromExercises(exercises: ExerciseWithMuscles[]): Record<string, number> {
+  const counts: Record<string, number> = {}
+  
+  for (const exercise of exercises) {
+    const muscles = exercise.primary_muscles || []
+    
+    for (const muscle of muscles) {
+      const normalized = normalizeToSubMuscle(muscle)
+      if (normalized) {
+        counts[normalized.groupId] = (counts[normalized.groupId] || 0) + 1
+      }
+    }
+  }
+  
+  const maxCount = Math.max(...Object.values(counts), 1)
+  const intensity: Record<string, number> = {}
+  
+  for (const [key, count] of Object.entries(counts)) {
+    intensity[key] = Math.min(count / maxCount, 1)
+  }
+  
+  return intensity
+}
+
 // --- CONSTANTS FOR UI ---
 
 export const MUSCLE_GROUP_IDS = MUSCLE_TAXONOMY.map(g => g.id)

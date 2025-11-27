@@ -9,6 +9,7 @@ import FocusTrap from 'focus-trap-react'
 import InlineEdit from '@/components/ui/InlineEdit'
 import ExerciseVideoButton from '@/components/workout/ExerciseVideoButton'
 import MuscleMap from '@/components/workout/MuscleMap'
+import { extractMusclesFromExercises } from '@/lib/muscles/taxonomy'
 import { SkeletonWorkoutDetail } from '@/components/ui/Skeleton'
 import { Workout, Exercise, WorkoutData, WorkoutSetDetail } from '@/types/workout'
 import { toast } from '@/lib/toast'
@@ -1539,7 +1540,9 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
                             <Activity className="h-3 w-3" />
                             Muscle Groups
                           </div>
-                          <p className="text-xs text-white/90 line-clamp-1">{workout.muscle_groups_targeted}</p>
+                          <p className="text-xs text-white/90 line-clamp-2">
+                            {extractMusclesFromExercises(workout.workout_data.exercises).formatted || 'No muscles targeted'}
+                          </p>
                         </div>
 
                         <div className="rounded-md border border-transparent bg-white/5 p-2">

@@ -114,14 +114,24 @@ SET secondary_muscles = (
 )
 WHERE secondary_muscles IS NOT NULL AND array_length(secondary_muscles, 1) > 0;
 
--- Update primary_muscles_targeted in workouts table (summary field)
-UPDATE public.workouts
-SET primary_muscles_targeted = (
-  SELECT array_agg(DISTINCT migrate_muscle_name(muscle))
-  FROM unnest(primary_muscles_targeted) AS muscle
-  WHERE muscle IS NOT NULL AND muscle != ''
-)
-WHERE primary_muscles_targeted IS NOT NULL AND array_length(primary_muscles_targeted, 1) > 0;
+-- Update primary_muscles_targeted in workouts table (only if column exists)
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema = 'public' 
+    AND table_name = 'workouts' 
+    AND column_name = 'primary_muscles_targeted'
+  ) THEN
+    UPDATE public.workouts
+    SET primary_muscles_targeted = (
+      SELECT array_agg(DISTINCT migrate_muscle_name(muscle))
+      FROM unnest(primary_muscles_targeted) AS muscle
+      WHERE muscle IS NOT NULL AND muscle != ''
+    )
+    WHERE primary_muscles_targeted IS NOT NULL AND array_length(primary_muscles_targeted, 1) > 0;
+  END IF;
+END $$;
 
 -- Log the migration
 DO $$
