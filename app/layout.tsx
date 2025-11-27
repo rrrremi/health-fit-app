@@ -77,9 +77,8 @@ export default function RootLayout({
             <Toaster 
               position="top-center" 
               richColors 
-              closeButton
               toastOptions={{
-                duration: 4000,
+                duration: 3300,
                 className: 'toast-base',
                 style: {
                   background: 'rgba(15, 23, 42, 0.95)',
@@ -88,6 +87,7 @@ export default function RootLayout({
                   backdropFilter: 'blur(8px)',
                   fontSize: '13px',
                   padding: '12px 16px',
+                  cursor: 'pointer',
                 },
               }}
               expand={false}

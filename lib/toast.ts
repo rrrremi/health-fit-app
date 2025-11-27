@@ -5,13 +5,13 @@ import { toast as sonnerToast } from 'sonner'
  * Provides consistent, delicate toast notifications across the app
  * 
  * Features:
- * - 4 second duration (auto-close)
+ * - 3.3 second duration (auto-close)
  * - Smooth animations
  * - Consistent styling
  * - No duplicate toasts for same message
  */
 
-const TOAST_DURATION = 4000 // 4 seconds
+const TOAST_DURATION = 3300 // 3.3 seconds
 
 // Track recent toasts to prevent duplicates
 const recentToasts = new Map<string, number>()
