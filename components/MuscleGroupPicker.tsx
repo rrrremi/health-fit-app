@@ -231,7 +231,7 @@ export default function MuscleGroupPicker({
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -5, scale: 0.95 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute top-full left-0 mt-1.5 z-50 min-w-[180px] rounded-lg border border-white/20 bg-slate-900/95 backdrop-blur-xl shadow-xl"
+                    className="absolute top-full left-0 mt-1.5 z-50 min-w-[180px] rounded-lg border border-emerald-800/50 bg-emerald-950/95 backdrop-blur-xl shadow-xl"
                   >
                     <SubMuscleSelector
                       group={group}
@@ -289,18 +289,18 @@ function SubMuscleSelector({
   return (
     <div className="p-2">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-white/10">
+      <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-emerald-700/30">
         <span className="text-xs font-medium text-white/90">{group.label}</span>
         <div className="flex gap-1">
           <button
             onClick={onSelectAll}
-            className={`px-1.5 py-0.5 text-[9px] rounded ${allSelected ? 'bg-white/20 text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+            className={`px-1.5 py-0.5 text-[9px] rounded ${allSelected ? 'bg-emerald-700/40 text-white' : 'bg-emerald-800/30 text-white/50 hover:bg-emerald-700/30'}`}
           >
             All
           </button>
           <button
             onClick={onDeselectAll}
-            className={`px-1.5 py-0.5 text-[9px] rounded ${noneSelected ? 'bg-white/20 text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
+            className={`px-1.5 py-0.5 text-[9px] rounded ${noneSelected ? 'bg-emerald-700/40 text-white' : 'bg-emerald-800/30 text-white/50 hover:bg-emerald-700/30'}`}
           >
             None
           </button>
@@ -318,14 +318,14 @@ function SubMuscleSelector({
               className={`
                 w-full flex items-center gap-2 px-2 py-1.5 rounded text-left text-xs transition-colors
                 ${selected 
-                  ? 'bg-white/15 text-white' 
-                  : 'text-white/60 hover:bg-white/5 hover:text-white/80'
+                  ? 'bg-emerald-700/30 text-white' 
+                  : 'text-white/60 hover:bg-emerald-800/30 hover:text-white/80'
                 }
               `}
             >
               <div className={`
                 h-3.5 w-3.5 rounded border flex items-center justify-center flex-shrink-0
-                ${selected ? 'border-white/50 bg-white/20' : 'border-white/30'}
+                ${selected ? 'border-emerald-400/50 bg-emerald-600/30' : 'border-emerald-600/40'}
               `}>
                 {selected && <Check className="h-2.5 w-2.5 text-white" strokeWidth={2.5} />}
               </div>
@@ -338,7 +338,7 @@ function SubMuscleSelector({
       {/* Done button */}
       <button
         onClick={onClose}
-        className="w-full mt-2 py-1.5 text-xs font-medium text-white/80 bg-white/10 hover:bg-white/15 rounded transition-colors"
+        className="w-full mt-2 py-1.5 text-xs font-medium text-white/80 bg-emerald-700/40 hover:bg-emerald-600/40 rounded transition-colors"
       >
         Done
       </button>
