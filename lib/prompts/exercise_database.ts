@@ -104,6 +104,7 @@ USER INPUTS:
 - MUSCLE_FOCUS: {{muscleFocus}}
 - WORKOUT_FOCUS: {{workoutFocus}}
 - EXERCISE_COUNT: {{exerciseCount}}
+- DIFFICULTY: {{difficulty}}
 {{#specialInstructions}}- SPECIAL: {{specialInstructions}}{{/specialInstructions}}
 
 TRAINING PARAMETERS FOR {{workoutFocus}}:
@@ -120,7 +121,7 @@ PROGRAMMING REQUIREMENTS:
 5. Balance joint stress distribution
 6. Include appropriate progressions/regressions
 7. Match sets/reps/rest with {{workoutFocus}} principles
-8. Appropriate technical difficulty
+8. Match technical difficulty to user's DIFFICULTY level ({{difficulty}})
 9. For single muscle focus: target different angles/functions
 10. For cardio/plyometric/stretching: include varied modalities
 11. Prioritize safety and efficiency

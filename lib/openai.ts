@@ -52,7 +52,8 @@ export function generateWorkoutPrompt(
   exerciseCount: number = 4,
   specialInstructions: string = '',
   retry = false,
-  useExerciseDatabase = true
+  useExerciseDatabase = true,
+  difficulty: string = 'intermediate'
 ): string {
   // 1) Start with the appropriate base prompt
   // - Standard base (BASE_WORKOUT_PROMPT) gives a simple schema and rules
@@ -89,7 +90,8 @@ export function generateWorkoutPrompt(
     .replace(/\{\{workoutFocus\}\}/g, workoutFocus.join(', '))
     .replace(/\{\{exerciseCount\}\}/g, exerciseCount.toString())
     .replace(/\{\{minExercisesForMuscle\}\}/g, Math.max(1, Math.ceil(exerciseCount * 0.6)).toString())
-    .replace(/\{\{focusSpecificInstructions\}\}/g, specificInstructions);
+    .replace(/\{\{focusSpecificInstructions\}\}/g, specificInstructions)
+    .replace(/\{\{difficulty\}\}/g, difficulty);
     
   // Handle special instructions if provided
   if (specialInstructions && specialInstructions.trim()) {
@@ -152,7 +154,8 @@ export async function generateWorkout(
       requestData.exerciseCount, 
       requestData.specialInstructions || '',
       retry,
-      useExerciseDatabase
+      useExerciseDatabase,
+      requestData.difficulty || 'intermediate'
     );
     
     // Debug log
