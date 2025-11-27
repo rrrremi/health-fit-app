@@ -1,3 +1,5 @@
+import { MUSCLE_TAXONOMY } from '@/lib/muscles/taxonomy';
+
 export interface WorkoutSetDetail {
   set_number: number;
   reps?: number | null;
@@ -108,20 +110,10 @@ export interface StatusOption {
   label: string;
 }
 
+// Generate MUSCLE_OPTIONS from centralized taxonomy
 export const MUSCLE_OPTIONS: MuscleOption[] = [
-  { id: 'neck', label: 'Neck' },
-  { id: 'back', label: 'Back' },
-  { id: 'biceps', label: 'Biceps' },
-  { id: 'triceps', label: 'Triceps' },
-  { id: 'forearms', label: 'Forearms' },
-  { id: 'shoulders', label: 'Shoulders' },
-  { id: 'chest', label: 'Chest' },
-  { id: 'core', label: 'Core' },
-  { id: 'quads', label: 'Quads' },
-  { id: 'glutes', label: 'Glutes' },
-  { id: 'hamstrings', label: 'Hamstrings' },
-  { id: 'calves', label: 'Calves' },
-  { id: 'full_body', label: 'Full Body' }
+  ...MUSCLE_TAXONOMY.map(g => ({ id: g.id, label: g.label })),
+  { id: 'full_body', label: 'Full Body' }  // Special option for filtering
 ];
 
 export const FOCUS_OPTIONS: FocusOption[] = [

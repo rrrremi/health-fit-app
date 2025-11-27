@@ -7,7 +7,8 @@ import dynamic from 'next/dynamic';
 import SignOutButton from '@/components/auth/SignOutButton';
 import { WorkoutGenerationResponse, WorkoutGenerationRequest } from '@/types/workout';
 import { createClient } from '@/lib/supabase/client';
-import { muscleGroups, mapToSimplifiedCategories } from '@/lib/data/muscleGroups';
+import MuscleGroupPicker from '@/components/MuscleGroupPicker';
+import { MuscleSelection, formatSelectionsForPrompt, selectionsToGroupIds } from '@/lib/muscles/taxonomy';
 import { motion } from 'framer-motion'
 import { Dumbbell, Sparkles, Play, Settings, ChevronLeft, Zap, Target, Clock, BarChart3, CheckCircle, Activity, RefreshCw } from 'lucide-react'
 import SimilarWorkoutSuggestions from '@/components/workout/SimilarWorkoutSuggestions';
@@ -31,21 +32,7 @@ const ProgressiveWorkoutGeneration = dynamic(
   }
 );
 
-// Muscle groups and workout focus options
-const MUSCLE_GROUPS = [
-  { id: 'chest', label: 'Chest' },
-  { id: 'back', label: 'Back' },
-  { id: 'shoulders', label: 'Shoulders' },
-  { id: 'biceps', label: 'Biceps' },
-  { id: 'triceps', label: 'Triceps' },
-  { id: 'forearms', label: 'Forearms' },
-  { id: 'neck', label: 'Neck' },
-  { id: 'core', label: 'Core' },
-  { id: 'glutes', label: 'Glutes' },
-  { id: 'quads', label: 'Quads' },
-  { id: 'hamstrings', label: 'Hamstrings' },
-  { id: 'calves', label: 'Calves' },
-];
+// Workout focus options
 
 const DIFFICULTY_LEVELS = [
   { id: 'beginner', label: 'Beginner', description: 'New to training' },
@@ -74,7 +61,7 @@ export default function GenerateWorkoutPage() {
   const [isLoaded, setIsLoaded] = useState(false)
   const generationCountCacheRef = useRef<{ count: number; timestamp: number } | null>(null)
   const CACHE_DURATION = 2 * 60 * 1000 // 2 minutes
-  const [muscleFocus, setMuscleFocus] = useState<string[]>([]);
+  const [muscleSelections, setMuscleSelections] = useState<MuscleSelection[]>([]);
   const [workoutFocus, setWorkoutFocus] = useState<string[]>(['hypertrophy']);
   const [exerciseCount, setExerciseCount] = useState<number>(4);
   const [specialInstructions, setSpecialInstructions] = useState<string>('');
@@ -102,7 +89,15 @@ export default function GenerateWorkoutPage() {
         const exerciseCountParam = searchParams.get('exerciseCount')
         const excludeExercisesParam = searchParams.get('excludeExercises')
         
-        if (muscleFocusParam) setMuscleFocus(JSON.parse(muscleFocusParam))
+        if (muscleFocusParam) {
+          const parsed = JSON.parse(muscleFocusParam)
+          // Convert legacy format to new format
+          if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === 'string') {
+            setMuscleSelections(parsed.map((id: string) => ({ groupId: id, specific: null })))
+          } else {
+            setMuscleSelections(parsed)
+          }
+        }
         if (workoutFocusParam) setWorkoutFocus(JSON.parse(workoutFocusParam))
         if (exerciseCountParam) setExerciseCount(parseInt(exerciseCountParam))
         if (excludeExercisesParam) {
@@ -172,7 +167,7 @@ export default function GenerateWorkoutPage() {
 
   // Memoize validation result
   const validationError = useMemo(() => {
-    if (muscleFocus.length < 1 || muscleFocus.length > 4) {
+    if (muscleSelections.length < 1 || muscleSelections.length > 4) {
       return 'Please select 1-4 muscle groups';
     }
 
@@ -189,27 +184,19 @@ export default function GenerateWorkoutPage() {
     }
 
     return null;
-  }, [muscleFocus.length, workoutFocus.length, exerciseCount, specialInstructions]);
+  }, [muscleSelections.length, workoutFocus.length, exerciseCount, specialInstructions]);
 
-  // Handle click on muscle group button (for regular selection)
-  const toggleMuscleGroup = useCallback((id: string) => {
-    // Update muscle focus state
-    setMuscleFocus(prev => {
-      const newFocus = prev.includes(id) 
-        ? prev.filter(m => m !== id) 
-        : prev.length < 4 ? [...prev, id] : prev;
-      
-      // Hide suggestions if all muscles are unselected
-      if (newFocus.length === 0) {
-        setShowSuggestions(false);
-      } else if (!showSuggestions && newFocus.length > 0 && workoutFocus.length > 0) {
-        // Show suggestions if we have at least one muscle and one focus
-        setShowSuggestions(true);
-      }
-      
-      return newFocus;
-    });
-
+  // Handle muscle selection changes
+  const handleMuscleSelectionChange = useCallback((selections: MuscleSelection[]) => {
+    setMuscleSelections(selections);
+    
+    // Hide suggestions if all muscles are unselected
+    if (selections.length === 0) {
+      setShowSuggestions(false);
+    } else if (!showSuggestions && selections.length > 0 && workoutFocus.length > 0) {
+      setShowSuggestions(true);
+    }
+    
     // Clear any existing error when user interacts with the form
     if (error) setError(null);
   }, [error, showSuggestions, workoutFocus.length]);
@@ -227,7 +214,7 @@ export default function GenerateWorkoutPage() {
       // or show suggestions if we have at least one muscle and one focus
       if (newFocus.length === 0) {
         setShowSuggestions(false);
-      } else if (!showSuggestions && muscleFocus.length > 0 && newFocus.length > 0) {
+      } else if (!showSuggestions && muscleSelections.length > 0 && newFocus.length > 0) {
         setShowSuggestions(true);
       }
       
@@ -236,7 +223,7 @@ export default function GenerateWorkoutPage() {
 
     // Clear any existing error when user interacts with the form
     if (error) setError(null);
-  }, [error, muscleFocus.length, showSuggestions]);
+  }, [error, muscleSelections.length, showSuggestions]);
 
   // Cancel any in-flight generation request
   const cancelGeneration = useCallback(() => {
@@ -280,8 +267,9 @@ export default function GenerateWorkoutPage() {
       const excludeExercisesParam = searchParams.get('excludeExercises')
       const excludeExercises = excludeExercisesParam ? JSON.parse(excludeExercisesParam) : undefined
       
-      const requestBody: WorkoutGenerationRequest & { excludeExercises?: string[] } = {
-        muscleFocus: muscleFocus,
+      const requestBody: WorkoutGenerationRequest & { excludeExercises?: string[]; muscleSelections?: MuscleSelection[] } = {
+        muscleFocus: selectionsToGroupIds(muscleSelections),  // Legacy format for backward compat
+        muscleSelections: muscleSelections,  // New detailed format
         workoutFocus: workoutFocus,
         exerciseCount: exerciseCount,
         specialInstructions: specialInstructions,
@@ -433,29 +421,18 @@ export default function GenerateWorkoutPage() {
               </div>
             )}
 
-            {/* Muscle Groups - Horizontal Chips */}
+            {/* Muscle Groups - Hierarchical Picker */}
             <div className="mb-3">
-              <div className="flex justify-between items-center mb-1">
+              <div className="flex justify-between items-center mb-2">
                 <label className="text-xs text-white/70">Target Muscles</label>
                 <span className="text-xs text-white/50 tabular-nums">
-                  {muscleFocus.length}/4
+                  {muscleSelections.length}/4
                 </span>
               </div>
-              <div className="flex flex-row flex-wrap gap-1.5 justify-center">
-                {MUSCLE_GROUPS.map((group) => (
-                  <button
-                    key={group.id}
-                    onClick={() => toggleMuscleGroup(group.id)}
-                    className={`h-7 px-2 rounded-full text-[10px] font-medium transition-colors ${
-                      muscleFocus.includes(group.id)
-                        ? 'bg-fuchsia-500/30 text-fuchsia-200 border border-transparent'
-                        : 'bg-white/10 text-white/70 border border-transparent hover:bg-white/20'
-                    }`}
-                  >
-                    {group.label}
-                  </button>
-                ))}
-              </div>
+              <MuscleGroupPicker
+                selections={muscleSelections}
+                onChange={handleMuscleSelectionChange}
+              />
             </div>
 
             {/* Workout Focus - Multiple Selection (up to 3) */}
@@ -560,10 +537,10 @@ export default function GenerateWorkoutPage() {
             </div>
             {/* Generate Button */}
             <button
-              disabled={isGenerating || muscleFocus.length === 0}
+              disabled={isGenerating || muscleSelections.length === 0}
               onClick={generateWorkout}
               className={`w-full flex items-center justify-center gap-1.5 py-2.5 rounded-lg border font-light text-xs transition-all ${
-                isGenerating || muscleFocus.length === 0
+                isGenerating || muscleSelections.length === 0
                   ? 'border-white/20 bg-white/10 text-white/50 cursor-not-allowed'
                   : 'border-white/30 bg-white/20 text-white/90 hover:bg-white/30 backdrop-blur-xl'
               }`}
@@ -590,9 +567,9 @@ export default function GenerateWorkoutPage() {
         
         {/* Similar Workout Suggestions */}
         <SimilarWorkoutSuggestions 
-          muscleFocus={muscleFocus}
+          muscleFocus={selectionsToGroupIds(muscleSelections)}
           workoutFocus={workoutFocus}
-          isVisible={showSuggestions && !isGenerating && muscleFocus.length > 0 && workoutFocus.length > 0}
+          isVisible={showSuggestions && !isGenerating && muscleSelections.length > 0 && workoutFocus.length > 0}
         />
       </section>
 

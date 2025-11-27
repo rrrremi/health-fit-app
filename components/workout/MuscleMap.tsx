@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import { Exercise } from '@/types/workout'
+import { normalizeToGroup, MUSCLE_GROUP_IDS } from '@/lib/muscles/taxonomy'
 
 interface MuscleMapProps {
   exercises: Exercise[]
@@ -9,33 +10,36 @@ interface MuscleMapProps {
 }
 
 // --- MUSCLE MAPPING LOGIC ---
-
-const MUSCLE_ALIASES: Record<string, string[]> = {
-  chest: ['chest', 'pectorals', 'pecs', 'pectoralis'],
-  back: ['back', 'lats', 'latissimus', 'rhomboids', 'upper back', 'lower back', 'erector', 'traps', 'trapezius'],
-  shoulders: ['shoulders', 'deltoids', 'delts', 'front delts', 'rear delts', 'lateral delts'],
-  biceps: ['biceps', 'bicep', 'brachialis'],
-  triceps: ['triceps', 'tricep'],
-  forearms: ['forearms', 'forearm', 'wrists', 'grip', 'brachioradialis'],
-  core: ['core', 'abs', 'abdominals', 'obliques', 'rectus abdominis', 'transverse'],
-  quads: ['quads', 'quadriceps', 'thighs', 'front thighs', 'rectus femoris', 'vastus'],
-  hamstrings: ['hamstrings', 'hamstring', 'rear thighs', 'biceps femoris'],
-  glutes: ['glutes', 'gluteus', 'buttocks', 'hips'],
-  calves: ['calves', 'calf', 'gastrocnemius', 'soleus', 'tibialis'],
-  neck: ['neck', 'sternocleidomastoid'],
-}
+// Uses centralized taxonomy for normalization
 
 function normalizeMuscle(muscle: string): string | null {
   const lower = muscle.toLowerCase().trim()
-  for (const [key, aliases] of Object.entries(MUSCLE_ALIASES)) {
-    if (aliases.some(alias => lower.includes(alias) || alias.includes(lower))) {
-      return key
-    }
-  }
+  
+  // Check for full body first
   if (lower.includes('full body') || lower.includes('compound') || lower.includes('total body')) {
     return 'full_body'
   }
-  return null
+  
+  // Use taxonomy's normalization
+  const groupId = normalizeToGroup(muscle)
+  
+  // Map 'arms' back to sub-components for visualization since we have separate biceps/triceps/forearms
+  if (groupId === 'arms') {
+    if (lower.includes('bicep')) return 'biceps'
+    if (lower.includes('tricep')) return 'triceps'
+    if (lower.includes('forearm')) return 'forearms'
+    return 'biceps'  // Default for arms
+  }
+  
+  // Map 'legs' back to sub-components
+  if (groupId === 'legs') {
+    if (lower.includes('quad')) return 'quads'
+    if (lower.includes('hamstring')) return 'hamstrings'
+    if (lower.includes('glute') || lower.includes('hip')) return 'glutes'
+    return 'quads'  // Default for legs
+  }
+  
+  return groupId
 }
 
 function calculateMuscleIntensity(exercises: Exercise[]): Record<string, number> {
@@ -46,7 +50,9 @@ function calculateMuscleIntensity(exercises: Exercise[]): Record<string, number>
     muscles.forEach(muscle => {
       const normalized = normalizeMuscle(muscle)
       if (normalized === 'full_body') {
-        Object.keys(MUSCLE_ALIASES).forEach(key => {
+        // Spread intensity across all major muscle groups
+        const allGroups = ['chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms', 'core', 'quads', 'hamstrings', 'glutes', 'calves', 'neck']
+        allGroups.forEach(key => {
           counts[key] = (counts[key] || 0) + 0.5
         })
       } else if (normalized) {

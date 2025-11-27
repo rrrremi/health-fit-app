@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Search, Plus, Loader2 } from 'lucide-react'
+import { MUSCLE_TAXONOMY } from '@/lib/muscles/taxonomy'
 
 interface Exercise {
   id: string
@@ -22,18 +23,8 @@ interface ExercisePickerProps {
   onSelectExercise?: (exerciseName: string) => void
 }
 
-const MUSCLE_GROUPS = [
-  'all',
-  'chest',
-  'back',
-  'shoulders',
-  'biceps',
-  'triceps',
-  'legs',
-  'core',
-  'glutes',
-  'calves'
-]
+// Use centralized taxonomy for muscle groups
+const MUSCLE_GROUPS = ['all', ...MUSCLE_TAXONOMY.map(g => g.id)]
 
 const MOVEMENT_TYPES = [
   'all',

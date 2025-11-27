@@ -6,6 +6,7 @@ import { findOrCreateExercise } from '@/lib/exercises/database';
 import { linkExerciseToWorkout, calculateWorkoutSummary } from '@/lib/exercises/operations';
 import { sanitizeSpecialInstructions, sanitizeWorkoutName } from '@/lib/utils/sanitize';
 import { deriveMuscleFocusFromExercises } from '@/lib/workouts/muscleFocus';
+import { MuscleSelection, formatSelectionsForPrompt, selectionsToGroupIds } from '@/lib/muscles/taxonomy';
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof Error) {
@@ -73,7 +74,20 @@ export async function POST(request: NextRequest) {
     }
     
     // Parse request body
-    const requestData: WorkoutGenerationRequest & { excludeExercises?: string[] } = await request.json();
+    const requestData: WorkoutGenerationRequest & { 
+      excludeExercises?: string[];
+      muscleSelections?: MuscleSelection[];
+    } = await request.json();
+    
+    // Format muscle selections for prompt if provided
+    let formattedMuscleFocus: string | undefined;
+    if (requestData.muscleSelections && requestData.muscleSelections.length > 0) {
+      formattedMuscleFocus = formatSelectionsForPrompt(requestData.muscleSelections);
+      // Also ensure muscleFocus has group IDs for backward compatibility
+      if (!requestData.muscleFocus || requestData.muscleFocus.length === 0) {
+        requestData.muscleFocus = selectionsToGroupIds(requestData.muscleSelections);
+      }
+    }
     
     // Sanitize user input immediately
     if (requestData.specialInstructions) {
@@ -121,7 +135,12 @@ export async function POST(request: NextRequest) {
     
     // Remove excludeExercises from the request before passing to generateWorkout
     // (it's already been added to specialInstructions)
-    const { excludeExercises, ...workoutRequest } = requestData;
+    const { excludeExercises, muscleSelections, ...workoutRequest } = requestData;
+    
+    // If we have formatted muscle focus from selections, use it
+    if (formattedMuscleFocus) {
+      (workoutRequest as any).formattedMuscleFocus = formattedMuscleFocus;
+    }
     
     if (process.env.NODE_ENV === 'development') {
       console.log('Calling generateWorkout with:', workoutRequest);

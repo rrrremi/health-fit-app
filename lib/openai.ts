@@ -119,6 +119,7 @@ export async function generateWorkout(
     exerciseCount: number;
     specialInstructions?: string;
     difficulty?: string;
+    formattedMuscleFocus?: string;  // Pre-formatted string like "back (lower back), chest"
   },
   retry = false,
   useExerciseDatabase = true
@@ -140,8 +141,13 @@ export async function generateWorkout(
     }
 
     // Build the final prompt string using the helper above
+    // Use formattedMuscleFocus if available (includes sub-muscle details)
+    const muscleFocusForPrompt = requestData.formattedMuscleFocus 
+      ? [requestData.formattedMuscleFocus]  // Already formatted as descriptive string
+      : requestData.muscleFocus;
+    
     const prompt = generateWorkoutPrompt(
-      requestData.muscleFocus, 
+      muscleFocusForPrompt, 
       requestData.workoutFocus, 
       requestData.exerciseCount, 
       requestData.specialInstructions || '',
