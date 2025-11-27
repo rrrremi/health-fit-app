@@ -167,8 +167,8 @@ export default function GenerateWorkoutPage() {
 
   // Memoize validation result
   const validationError = useMemo(() => {
-    if (muscleSelections.length < 1 || muscleSelections.length > 4) {
-      return 'Please select 1-4 muscle groups';
+    if (muscleSelections.length < 1 || muscleSelections.length > 18) {
+      return 'Please select 1-18 muscle groups';
     }
 
     if (workoutFocus.length < 1 || workoutFocus.length > 3) {
@@ -426,7 +426,7 @@ export default function GenerateWorkoutPage() {
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs text-white/70">Target Muscles</label>
                 <span className="text-xs text-white/50 tabular-nums">
-                  {muscleSelections.length}/4
+                  {muscleSelections.length}/18
                 </span>
               </div>
               <MuscleGroupPicker
