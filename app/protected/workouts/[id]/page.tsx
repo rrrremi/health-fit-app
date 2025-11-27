@@ -1541,7 +1541,7 @@ export default function WorkoutDetailPage({ params }: { params: { id: string } }
                             Muscle Groups
                           </div>
                           <p className="text-xs text-white/90 line-clamp-2">
-                            {extractMusclesFromExercises(workout.workout_data.exercises).formatted || 'No muscles targeted'}
+                            {extractMusclesFromExercises(workout.workout_data.exercises).detailed || 'No muscles targeted'}
                           </p>
                         </div>
 
