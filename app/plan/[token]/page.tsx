@@ -106,11 +106,11 @@ export default function SharedPlanPage() {
   // Exercise log modal state
   const [logModal, setLogModal] = useState<{ workoutId: string; exerciseIdx: number; exercise: SharedExercise } | null>(null)
   const [logEntries, setLogEntries] = useState<LocalSetEntry[]>([])
-  const [savedIndicator, setSavedIndicator] = useState(false)
+
 
   const fetchPlan = useCallback(async (isInitial = false) => {
     try {
-      const res = await fetch(`/api/workout-plans/shared/${token}?t=${Date.now()}`)
+      const res = await fetch(`/api/workout-plans/shared/${token}?t=${Date.now()}`, { cache: 'no-store' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Plan not found')
       setPlan(data.plan)
@@ -155,13 +155,11 @@ export default function SharedPlanPage() {
     }))
     setLogEntries(entries)
     setLogModal({ workoutId, exerciseIdx, exercise })
-    setSavedIndicator(false)
   }
 
   const closeLogModal = () => {
     setLogModal(null)
     setLogEntries([])
-    setSavedIndicator(false)
   }
 
   const updateLogField = (idx: number, field: keyof LocalSetEntry, value: string) => {
@@ -193,8 +191,7 @@ export default function SharedPlanPage() {
   const saveLog = () => {
     if (!logModal) return
     saveLocalLog(token, logModal.workoutId, logModal.exerciseIdx, logEntries)
-    setSavedIndicator(true)
-    setTimeout(() => setSavedIndicator(false), 1500)
+    closeLogModal()
   }
 
   const hasLocalLog = (workoutId: string, exerciseIdx: number): boolean => {
@@ -332,7 +329,7 @@ export default function SharedPlanPage() {
                               <div className="flex items-center gap-1.5 flex-1 min-w-0">
                                 <p className="text-[11px] text-white/90 font-medium truncate">{ex.name}</p>
                                 {hasLocalLog(w.id, idx) && (
-                                  <span className="text-[7px] px-1 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 flex-shrink-0">logged</span>
+                                  <span className="text-[7px] px-1 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 flex-shrink-0">completed exercise</span>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
@@ -523,29 +520,13 @@ export default function SharedPlanPage() {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="flex gap-2 px-4 pb-4 pt-2 border-t border-white/5">
-                  <button
-                    onClick={closeLogModal}
-                    className="rounded-lg bg-white/10 px-3 py-1.5 text-[10px] text-white/70 hover:bg-white/15 transition-colors flex items-center gap-1"
-                  >
-                    <X className="h-3 w-3" />
-                    Close
-                  </button>
+                <div className="px-4 pb-4 pt-2 border-t border-white/5">
                   <button
                     onClick={saveLog}
-                    className="flex-1 rounded-lg bg-emerald-500/20 px-3 py-1.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/30 transition-colors flex items-center justify-center gap-1"
+                    className="w-full rounded-lg bg-emerald-500/20 px-3 py-2 text-[11px] font-medium text-emerald-300 hover:bg-emerald-500/30 transition-colors flex items-center justify-center gap-1"
                   >
-                    {savedIndicator ? (
-                      <>
-                        <Check className="h-3 w-3" />
-                        Saved!
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-3 w-3" />
-                        Save
-                      </>
-                    )}
+                    <Check className="h-3 w-3" />
+                    Save
                   </button>
                 </div>
 

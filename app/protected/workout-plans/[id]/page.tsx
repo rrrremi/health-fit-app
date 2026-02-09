@@ -343,7 +343,7 @@ export default function WorkoutPlanDetailPage() {
         >
           {/* Back Button */}
           <Link href="/protected/workout-plans">
-            <button className="flex items-center gap-1 text-xs text-white/70 hover:text-white/90 transition-colors">
+            <button className="flex items-center gap-1.5 rounded-lg border border-transparent bg-white/5 px-3 py-1.5 text-xs text-white/80 backdrop-blur-xl hover:bg-white/10 transition-colors">
               <ChevronLeft className="h-3.5 w-3.5" />
               Back to Plans
             </button>

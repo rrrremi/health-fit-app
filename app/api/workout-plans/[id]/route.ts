@@ -76,7 +76,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
     }
 
-    const updateData: Record<string, any> = {}
+    const updateData: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    }
 
     if (name !== undefined) {
       if (typeof name !== 'string' || name.trim().length === 0) {
@@ -93,10 +95,6 @@ export async function PUT(
         return NextResponse.json({ error: 'Description cannot exceed 500 characters' }, { status: 400 })
       }
       updateData.description = description?.trim() || null
-    }
-
-    if (Object.keys(updateData).length === 0) {
-      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
     const { data: plan, error } = await supabase
