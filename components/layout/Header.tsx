@@ -16,7 +16,8 @@ import {
   LogOut,
   Home,
   Target,
-  Scale
+  Scale,
+  ClipboardList
 } from 'lucide-react'
 import { useAuth } from '@/components/auth/AuthProvider'
 
@@ -57,16 +58,18 @@ export default function Header() {
     setIsMenuOpen(false)
   }
 
-  // Check if we're on an auth page
+  // Check if we're on an auth page or shared plan page
   const isLoginPage = pathname?.startsWith('/auth/login')
   const isSignUpPage = pathname?.startsWith('/auth/signup')
   const isAuthPage = isLoginPage || isSignUpPage
+  const isSharedPlanPage = pathname?.startsWith('/plan/')
   
   const navigationItems = [
     // Removed Home button
     // Removed Dashboard button
     // Profile moved to right side (icon only)
     { href: '/protected/workouts', label: 'Workouts', icon: Dumbbell, requiresAuth: true, showAlways: false, hideWhenAuth: false, requiresAdmin: false },
+    { href: '/protected/workout-plans', label: 'Plans', icon: ClipboardList, requiresAuth: true, showAlways: false, hideWhenAuth: false, requiresAdmin: false },
     { href: '/protected/measurements', label: 'Measurements', icon: Scale, requiresAuth: true, showAlways: false, hideWhenAuth: false, requiresAdmin: false },
     // Removed Admin button
   ]
@@ -186,7 +189,7 @@ export default function Header() {
                   )}
                 </button>
               </>
-            ) : (
+            ) : !isSharedPlanPage ? (
               <div className="flex items-center gap-2">
                 <Link
                   href="/auth/login"
@@ -201,7 +204,7 @@ export default function Header() {
                   Get Started
                 </Link>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
