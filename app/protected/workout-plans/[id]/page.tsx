@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeft, ClipboardList, Link as LinkIcon, Trash2, Plus, X, Check,
-  RefreshCw, Pencil, Eye, Clock, Dumbbell, Users
+  RefreshCw, Pencil, Eye, Clock, Dumbbell, Users, Save
 } from 'lucide-react'
 import { toast } from '@/lib/toast'
 import { WorkoutPlanAccessLog } from '@/types/workout-plan'
@@ -48,6 +48,10 @@ export default function WorkoutPlanDetailPage() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [origin, setOrigin] = useState('')
 
+  // Track unsaved changes for publish
+  const [hasChanges, setHasChanges] = useState(false)
+  const [isPublishing, setIsPublishing] = useState(false)
+
   useEffect(() => {
     setOrigin(window.location.origin)
   }, [])
@@ -81,6 +85,7 @@ export default function WorkoutPlanDetailPage() {
     setPlan((prev: any) => ({ ...prev, name: newName, description: newDesc }))
     setIsEditing(false)
     setIsSaving(true)
+    setHasChanges(true)
 
     try {
       const res = await fetch(`/api/workout-plans/${planId}`, {
@@ -116,8 +121,9 @@ export default function WorkoutPlanDetailPage() {
   const copyShareLink = () => {
     if (!plan) return
     const url = `${origin}/plan/${plan.share_token}`
-    navigator.clipboard.writeText(url)
-    toast.success('Share link copied')
+    const message = `Hey! New workout plan for you: ${plan.name}\n\nSee it here: ${url}`
+    navigator.clipboard.writeText(message)
+    toast.success('Share message copied')
   }
 
   const fetchUserWorkouts = async () => {
@@ -169,6 +175,7 @@ export default function WorkoutPlanDetailPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Workout added')
+      setHasChanges(true)
       fetchPlan() // background sync
     } catch (err) {
       // Revert optimistic update
@@ -198,6 +205,7 @@ export default function WorkoutPlanDetailPage() {
       })
       if (!res.ok) throw new Error('Failed to remove')
       toast.success('Workout removed')
+      setHasChanges(true)
     } catch (err) {
       setPlan(prev) // revert
       toast.error('Failed to remove workout')
@@ -227,6 +235,7 @@ export default function WorkoutPlanDetailPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Workout duplicated')
+      setHasChanges(true)
       fetchPlan() // background sync
     } catch (err) {
       // Revert
@@ -276,11 +285,32 @@ export default function WorkoutPlanDetailPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Workout renamed')
+      setHasChanges(true)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to rename')
       fetchPlan() // revert by re-fetching
     } finally {
       setIsRenaming(false)
+    }
+  }
+
+  const handlePublish = async () => {
+    setIsPublishing(true)
+    try {
+      // Touch updated_at to confirm shared link is current
+      const res = await fetch(`/api/workout-plans/${planId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: plan.name, description: plan.description })
+      })
+      if (!res.ok) throw new Error('Failed to publish')
+      setHasChanges(false)
+      toast.success('Published to shared link')
+      await fetchPlan()
+    } catch (err) {
+      toast.error('Failed to publish changes')
+    } finally {
+      setIsPublishing(false)
     }
   }
 
@@ -382,6 +412,20 @@ export default function WorkoutPlanDetailPage() {
                         aria-label="Copy share link"
                       >
                         <LinkIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={handlePublish}
+                        disabled={isPublishing}
+                        className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                          hasChanges
+                            ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                            : 'hover:bg-white/10 text-white/50 hover:text-white/80'
+                        }`}
+                        aria-label="Publish changes to shared link"
+                        title={hasChanges ? 'Publish changes' : 'No changes to publish'}
+                      >
+                        {isPublishing ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                        {hasChanges && <span className="text-[10px] font-medium">Save</span>}
                       </button>
                       <button
                         onClick={() => {
@@ -553,15 +597,15 @@ export default function WorkoutPlanDetailPage() {
                     return (
                       <div
                         key={pw.id}
-                        className="rounded-md bg-white/5 p-2 hover:bg-white/10 transition-colors"
+                        className="rounded-md bg-white/5 p-1.5 sm:p-2 hover:bg-white/10 transition-colors overflow-hidden"
                       >
                         {renamingWorkoutId === w.id ? (
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1">
                             <input
                               type="text"
                               value={renameValue}
                               onChange={(e) => setRenameValue(e.target.value)}
-                              className="flex-1 rounded-md bg-white/10 px-2 py-1 text-[11px] text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-emerald-400/40"
+                              className="flex-1 min-w-0 rounded-md bg-white/10 px-2 py-1 text-[11px] text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-emerald-400/40"
                               autoFocus
                               maxLength={200}
                               onKeyDown={(e) => {
@@ -572,49 +616,49 @@ export default function WorkoutPlanDetailPage() {
                             <button
                               onClick={() => handleRenameWorkout(w.id)}
                               disabled={isRenaming || !renameValue.trim()}
-                              className="p-1 rounded-md bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition-colors disabled:opacity-50"
+                              className="p-1 rounded-md bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 transition-colors disabled:opacity-50 flex-shrink-0"
                             >
                               {isRenaming ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                             </button>
                             <button
                               onClick={() => setRenamingWorkoutId(null)}
                               disabled={isRenaming}
-                              className="p-1 rounded-md hover:bg-white/10 text-white/50 transition-colors"
+                              className="p-1 rounded-md hover:bg-white/10 text-white/50 transition-colors flex-shrink-0"
                             >
                               <X className="h-3 w-3" />
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
                             <Link
                               href={`/protected/workouts/${w.id}`}
-                              className="flex-1 min-w-0"
+                              className="flex-1 min-w-0 overflow-hidden"
                               onClick={(e) => e.stopPropagation()}
                             >
                               <p className="text-[11px] text-white/90 truncate">
                                 {w.name || `Workout ${new Date(w.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
                               </p>
-                              <div className="flex flex-wrap gap-1 mt-0.5">
-                                {focusValues.slice(0, 2).map((f: string, i: number) => (
+                              <div className="flex flex-wrap gap-0.5 mt-0.5">
+                                {focusValues.slice(0, 1).map((f: string, i: number) => (
                                   <span key={`f-${i}`} className="text-[7px] px-1 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 capitalize">{f}</span>
                                 ))}
-                                {muscleValues.slice(0, 2).map((m: string, i: number) => (
+                                {muscleValues.slice(0, 1).map((m: string, i: number) => (
                                   <span key={`m-${i}`} className="text-[7px] px-1 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-200 capitalize">{m}</span>
                                 ))}
-                                <span className="text-[7px] text-white/40">{exerciseCount} ex · {w.total_duration_minutes}m</span>
+                                <span className="text-[7px] text-white/40">{exerciseCount}ex · {w.total_duration_minutes}m</span>
                               </div>
                             </Link>
-                            <div className="flex items-center gap-0.5 ml-2 flex-shrink-0">
+                            <div className="flex items-center flex-shrink-0">
                               <button
                                 onClick={() => { setRenamingWorkoutId(w.id); setRenameValue(w.name || '') }}
-                                className="p-1 rounded-md hover:bg-white/10 text-white/30 hover:text-white/70 transition-colors"
+                                className="p-0.5 sm:p-1 rounded-md hover:bg-white/10 text-white/30 hover:text-white/70 transition-colors"
                                 aria-label="Rename workout"
                               >
                                 <Pencil className="h-2.5 w-2.5" />
                               </button>
                               <button
                                 onClick={() => handleDuplicateWorkout(w.id, w)}
-                                className="p-1 rounded-md hover:bg-white/10 text-white/30 hover:text-white/70 transition-colors"
+                                className="p-0.5 sm:p-1 rounded-md hover:bg-white/10 text-white/30 hover:text-white/70 transition-colors"
                                 aria-label="Duplicate workout in plan"
                                 title="Duplicate"
                               >
@@ -622,10 +666,10 @@ export default function WorkoutPlanDetailPage() {
                               </button>
                               <button
                                 onClick={() => handleRemoveWorkout(pw.id)}
-                                className="p-1 rounded-md hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-colors"
+                                className="p-0.5 sm:p-1 rounded-md hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-colors"
                                 aria-label="Remove workout from plan"
                               >
-                                <X className="h-3 w-3" />
+                                <X className="h-2.5 w-2.5" />
                               </button>
                             </div>
                           </div>

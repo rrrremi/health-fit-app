@@ -9,6 +9,7 @@ import { useWorkoutsData } from '@/hooks/useWorkoutsData'
 import { useWorkoutFilters } from '@/hooks/useWorkoutFilters'
 import { useWorkoutModal } from '@/hooks/useWorkoutModal'
 import DeleteWorkoutModal from '@/components/workout/DeleteWorkoutModal'
+import AddToPlanModal from '@/components/workout/AddToPlanModal'
 import WorkoutList from '@/components/workout/WorkoutList'
 
 export default function WorkoutsPage() {
@@ -38,6 +39,7 @@ export default function WorkoutsPage() {
   } = useWorkoutFilters(workouts)
 
   const { deleteTargetId, isDeleteModalOpen, isDeleting, openDeleteModal, closeDeleteModal, handleDeleteConfirm } = useWorkoutModal()
+  const [addToPlanWorkoutId, setAddToPlanWorkoutId] = useState<string | null>(null)
 
   // Enhanced delete handler with cache update
   const handleDeleteWorkout = async (id: string) => {
@@ -292,6 +294,7 @@ export default function WorkoutsPage() {
                 searchTerm={searchTerm}
                 hasActiveFilters={hasActiveFilters}
                 onDeleteWorkout={openDeleteModal}
+                onAddToPlan={(id) => setAddToPlanWorkoutId(id)}
                 onClearFilters={clearFilters}
               />
             </div>
@@ -305,6 +308,14 @@ export default function WorkoutsPage() {
         isDeleting={isDeleting}
         onCancel={closeDeleteModal}
         onConfirm={() => handleDeleteWorkout(deleteTargetId!)}
+      />
+
+      {/* Add to Plan Modal */}
+      <AddToPlanModal
+        open={!!addToPlanWorkoutId}
+        workoutId={addToPlanWorkoutId}
+        workoutName={workouts.find(w => w.id === addToPlanWorkoutId)?.name || undefined}
+        onClose={() => setAddToPlanWorkoutId(null)}
       />
     </>
   )

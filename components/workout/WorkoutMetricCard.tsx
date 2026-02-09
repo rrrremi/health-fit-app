@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Clock, Trash2 } from 'lucide-react'
+import { Clock, Trash2, FolderPlus } from 'lucide-react'
 import { WorkoutListItem } from '@/types/workout'
 import WorkoutRatingDisplay from '@/components/workout/WorkoutRatingDisplay'
 import { WorkoutStatusBadge } from './WorkoutStatusBadge'
@@ -10,9 +10,10 @@ import { parseFocusValues, parseMuscleValues } from '@/lib/workout-utils'
 interface WorkoutMetricCardProps {
   workout: WorkoutListItem
   onDelete: (id: string) => void
+  onAddToPlan?: (id: string) => void
 }
 
-export function WorkoutMetricCard({ workout, onDelete }: WorkoutMetricCardProps) {
+export function WorkoutMetricCard({ workout, onDelete, onAddToPlan }: WorkoutMetricCardProps) {
   const router = useRouter()
   
   const focusValues = parseFocusValues(workout.workout_focus)
@@ -86,6 +87,20 @@ export function WorkoutMetricCard({ workout, onDelete }: WorkoutMetricCardProps)
             </p>
           </div>
           
+          {/* Add to Plan button */}
+          {onAddToPlan && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onAddToPlan(workout.id)
+              }}
+              className="p-1 rounded-md hover:bg-emerald-500/10 text-white/30 hover:text-emerald-400 transition-colors flex-shrink-0"
+              aria-label="Add to plan"
+              title="Add to plan"
+            >
+              <FolderPlus className="h-3 w-3" />
+            </button>
+          )}
           {/* Delete button */}
           <button
             onClick={(e) => {

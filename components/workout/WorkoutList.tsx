@@ -8,6 +8,7 @@ interface WorkoutListProps {
   searchTerm: string;
   hasActiveFilters: boolean;
   onDeleteWorkout: (id: string) => void;
+  onAddToPlan?: (id: string) => void;
   onClearFilters?: () => void;
 }
 
@@ -17,6 +18,7 @@ export default function WorkoutList({
   searchTerm,
   hasActiveFilters,
   onDeleteWorkout,
+  onAddToPlan,
   onClearFilters
 }: WorkoutListProps) {
   // Empty state - no workouts at all
@@ -75,6 +77,7 @@ export default function WorkoutList({
           key={workout.id}
           workout={workout}
           onDelete={onDeleteWorkout}
+          onAddToPlan={onAddToPlan}
         />
       ))}
     </div>
