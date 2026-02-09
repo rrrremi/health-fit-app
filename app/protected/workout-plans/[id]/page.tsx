@@ -74,20 +74,26 @@ export default function WorkoutPlanDetailPage() {
 
   const handleSave = async () => {
     if (!editName.trim()) return
+    const newName = editName.trim()
+    const newDesc = editDescription.trim() || null
+
+    // Optimistic: update immediately and close editor
+    setPlan((prev: any) => ({ ...prev, name: newName, description: newDesc }))
+    setIsEditing(false)
     setIsSaving(true)
+
     try {
       const res = await fetch(`/api/workout-plans/${planId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editName.trim(), description: editDescription.trim() || null })
+        body: JSON.stringify({ name: newName, description: newDesc })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      setPlan((prev: any) => ({ ...prev, name: data.plan.name, description: data.plan.description }))
-      setIsEditing(false)
       toast.success('Plan updated')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update')
+      fetchPlan() // revert
     } finally {
       setIsSaving(false)
     }
@@ -138,6 +144,22 @@ export default function WorkoutPlanDetailPage() {
 
   const handleAddWorkout = async (workoutId: string) => {
     setAddingWorkoutId(workoutId)
+    const workoutData = userWorkouts.find(w => w.id === workoutId)
+    const tempId = `temp-${Date.now()}`
+    const currentWorkouts = plan?.workout_plan_workouts || []
+    const nextIndex = currentWorkouts.length > 0 ? Math.max(...currentWorkouts.map((pw: any) => pw.order_index)) + 1 : 0
+
+    // Optimistic: add immediately
+    if (workoutData) {
+      setPlan((prev: any) => ({
+        ...prev,
+        workout_plan_workouts: [...(prev?.workout_plan_workouts || []), {
+          id: tempId, workout_id: workoutId, order_index: nextIndex, added_at: new Date().toISOString(),
+          workouts: workoutData
+        }]
+      }))
+    }
+
     try {
       const res = await fetch(`/api/workout-plans/${planId}/workouts`, {
         method: 'POST',
@@ -147,26 +169,72 @@ export default function WorkoutPlanDetailPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Workout added')
-      await fetchPlan()
+      fetchPlan() // background sync
     } catch (err) {
+      // Revert optimistic update
+      setPlan((prev: any) => ({
+        ...prev,
+        workout_plan_workouts: (prev?.workout_plan_workouts || []).filter((pw: any) => pw.id !== tempId)
+      }))
       toast.error(err instanceof Error ? err.message : 'Failed to add workout')
     } finally {
       setAddingWorkoutId(null)
     }
   }
 
-  const handleRemoveWorkout = async (workoutId: string) => {
+  const handleRemoveWorkout = async (planWorkoutId: string) => {
+    const prev = plan
+    // Optimistic: remove immediately
+    setPlan((p: any) => ({
+      ...p,
+      workout_plan_workouts: (p?.workout_plan_workouts || []).filter((pw: any) => pw.id !== planWorkoutId)
+    }))
+
     try {
       const res = await fetch(`/api/workout-plans/${planId}/workouts`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ workoutId })
+        body: JSON.stringify({ planWorkoutId })
       })
       if (!res.ok) throw new Error('Failed to remove')
       toast.success('Workout removed')
-      await fetchPlan()
     } catch (err) {
+      setPlan(prev) // revert
       toast.error('Failed to remove workout')
+    }
+  }
+
+  const handleDuplicateWorkout = async (workoutId: string, sourceWorkout: any) => {
+    const tempId = `temp-dup-${Date.now()}`
+    const currentWorkouts = plan?.workout_plan_workouts || []
+    const nextIndex = currentWorkouts.length > 0 ? Math.max(...currentWorkouts.map((pw: any) => pw.order_index)) + 1 : 0
+
+    // Optimistic: add duplicate immediately
+    setPlan((prev: any) => ({
+      ...prev,
+      workout_plan_workouts: [...(prev?.workout_plan_workouts || []), {
+        id: tempId, workout_id: workoutId, order_index: nextIndex, added_at: new Date().toISOString(),
+        workouts: sourceWorkout
+      }]
+    }))
+
+    try {
+      const res = await fetch(`/api/workout-plans/${planId}/workouts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workoutId })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Workout duplicated')
+      fetchPlan() // background sync
+    } catch (err) {
+      // Revert
+      setPlan((prev: any) => ({
+        ...prev,
+        workout_plan_workouts: (prev?.workout_plan_workouts || []).filter((pw: any) => pw.id !== tempId)
+      }))
+      toast.error(err instanceof Error ? err.message : 'Failed to duplicate')
     }
   }
 
@@ -185,28 +253,39 @@ export default function WorkoutPlanDetailPage() {
 
   const handleRenameWorkout = async (workoutId: string) => {
     if (!renameValue.trim()) return
+    const newName = renameValue.trim()
     setIsRenaming(true)
+
+    // Optimistic: update name immediately in all instances
+    setPlan((prev: any) => ({
+      ...prev,
+      workout_plan_workouts: (prev?.workout_plan_workouts || []).map((pw: any) =>
+        pw.workouts?.id === workoutId
+          ? { ...pw, workouts: { ...pw.workouts, name: newName } }
+          : pw
+      )
+    }))
+    setRenamingWorkoutId(null)
+
     try {
       const res = await fetch('/api/workouts/update', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: workoutId, name: renameValue.trim() })
+        body: JSON.stringify({ id: workoutId, name: newName })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Workout renamed')
-      setRenamingWorkoutId(null)
-      await fetchPlan()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to rename')
+      fetchPlan() // revert by re-fetching
     } finally {
       setIsRenaming(false)
     }
   }
 
   const planWorkouts = plan?.workout_plan_workouts || []
-  const planWorkoutIds = new Set(planWorkouts.map((pw: any) => pw.workout_id))
-  const availableWorkouts = userWorkouts.filter(w => !planWorkoutIds.has(w.id))
+  const availableWorkouts = userWorkouts
 
   if (loading) {
     return (
@@ -534,7 +613,15 @@ export default function WorkoutPlanDetailPage() {
                                 <Pencil className="h-2.5 w-2.5" />
                               </button>
                               <button
-                                onClick={() => handleRemoveWorkout(w.id)}
+                                onClick={() => handleDuplicateWorkout(w.id, w)}
+                                className="p-1 rounded-md hover:bg-white/10 text-white/30 hover:text-white/70 transition-colors"
+                                aria-label="Duplicate workout in plan"
+                                title="Duplicate"
+                              >
+                                <svg className="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                              </button>
+                              <button
+                                onClick={() => handleRemoveWorkout(pw.id)}
                                 className="p-1 rounded-md hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-colors"
                                 aria-label="Remove workout from plan"
                               >

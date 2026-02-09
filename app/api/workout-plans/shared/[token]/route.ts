@@ -25,14 +25,14 @@ export async function GET(
   { params }: { params: { token: string } }
 ) {
   try {
-    const supabase = createAnonClient()
+    const supabase = createServiceClient()
 
     // Validate token format (32 hex chars)
     if (!params.token || !/^[a-f0-9]{32}$/.test(params.token)) {
       return NextResponse.json({ error: 'Invalid link' }, { status: 400 })
     }
 
-    // Step 1: Fetch the plan
+    // Step 1: Fetch the plan by share token
     const { data: plan, error: planError } = await supabase
       .from('workout_plans')
       .select('id, name, description, share_token, created_at, updated_at')
@@ -50,13 +50,12 @@ export async function GET(
       .eq('plan_id', plan.id)
       .order('order_index', { ascending: true })
 
-    // Step 3: Fetch actual workout data using service role (bypasses RLS on workouts)
-    const workoutIds = (planWorkouts || []).map((pw: any) => pw.workout_id)
+    // Step 3: Fetch actual workout data
+    const workoutIds = Array.from(new Set((planWorkouts || []).map((pw: any) => pw.workout_id)))
     let workoutsMap: Record<string, any> = {}
 
     if (workoutIds.length > 0) {
-      const serviceClient = createServiceClient()
-      const { data: workouts } = await serviceClient
+      const { data: workouts } = await supabase
         .from('workouts')
         .select('id, name, created_at, total_duration_minutes, muscle_focus, workout_focus, workout_data, status, rating')
         .in('id', workoutIds)

@@ -46,18 +46,6 @@ export async function POST(
       return NextResponse.json({ error: 'Workout not found' }, { status: 404 })
     }
 
-    // Check if already in plan
-    const { data: existing } = await supabase
-      .from('workout_plan_workouts')
-      .select('id')
-      .eq('plan_id', params.id)
-      .eq('workout_id', workoutId)
-      .maybeSingle()
-
-    if (existing) {
-      return NextResponse.json({ error: 'Workout already in plan' }, { status: 400 })
-    }
-
     // Get next order_index
     const { data: maxOrder } = await supabase
       .from('workout_plan_workouts')
@@ -114,17 +102,24 @@ export async function DELETE(
       return NextResponse.json({ error: 'Plan not found' }, { status: 404 })
     }
 
-    const { workoutId } = await request.json()
+    const { workoutId, planWorkoutId } = await request.json()
 
-    if (!workoutId) {
-      return NextResponse.json({ error: 'workoutId is required' }, { status: 400 })
+    if (!workoutId && !planWorkoutId) {
+      return NextResponse.json({ error: 'workoutId or planWorkoutId is required' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    let query = supabase
       .from('workout_plan_workouts')
       .delete()
       .eq('plan_id', params.id)
-      .eq('workout_id', workoutId)
+
+    if (planWorkoutId) {
+      query = query.eq('id', planWorkoutId)
+    } else {
+      query = query.eq('workout_id', workoutId)
+    }
+
+    const { error } = await query
 
     if (error) {
       console.error('Error removing workout from plan:', error)

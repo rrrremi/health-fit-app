@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'next/navigation'
-import { motion } from 'framer-motion'
-import { ClipboardList, Dumbbell, Clock, Target, Activity, Zap } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ClipboardList, Dumbbell, Clock, X, Check, Plus } from 'lucide-react'
+
 function VideoIconButton({ exerciseName }: { exerciseName: string }) {
   const openYouTube = () => {
     const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(exerciseName)}&sp=EgIYAQ%253D%253D`
@@ -61,10 +62,36 @@ interface SharedPlan {
   }[]
 }
 
+interface LocalSetEntry {
+  set_number: number
+  reps: number | null
+  weight_kg: number | null
+  rest_seconds: number | null
+  notes: string | null
+}
+
 function parseFocus(val: string[] | string | null): string[] {
   if (!val) return []
   if (Array.isArray(val)) return val
   try { return JSON.parse(val) } catch { return [val] }
+}
+
+// localStorage helpers for exercise logs
+function getLogStorageKey(token: string, workoutId: string, exerciseIdx: number) {
+  return `plan_log_${token}_${workoutId}_${exerciseIdx}`
+}
+
+function loadLocalLog(token: string, workoutId: string, exerciseIdx: number): LocalSetEntry[] | null {
+  try {
+    const raw = localStorage.getItem(getLogStorageKey(token, workoutId, exerciseIdx))
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+function saveLocalLog(token: string, workoutId: string, exerciseIdx: number, entries: LocalSetEntry[]) {
+  try {
+    localStorage.setItem(getLogStorageKey(token, workoutId, exerciseIdx), JSON.stringify(entries))
+  } catch { /* quota exceeded, ignore */ }
 }
 
 export default function SharedPlanPage() {
@@ -75,6 +102,11 @@ export default function SharedPlanPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedWorkout, setExpandedWorkout] = useState<string | null>(null)
+
+  // Exercise log modal state
+  const [logModal, setLogModal] = useState<{ workoutId: string; exerciseIdx: number; exercise: SharedExercise } | null>(null)
+  const [logEntries, setLogEntries] = useState<LocalSetEntry[]>([])
+  const [savedIndicator, setSavedIndicator] = useState(false)
 
   const fetchPlan = useCallback(async (isInitial = false) => {
     try {
@@ -96,6 +128,80 @@ export default function SharedPlanPage() {
     fetchPlan(true)
   }, [fetchPlan])
 
+  // Re-fetch when tab becomes visible (user switches back)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchPlan(false)
+      }
+    }
+    const handleFocus = () => fetchPlan(false)
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('focus', handleFocus)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [fetchPlan])
+
+  const openLogModal = (workoutId: string, exerciseIdx: number, exercise: SharedExercise) => {
+    const saved = loadLocalLog(token, workoutId, exerciseIdx)
+    const entries = saved || Array.from({ length: exercise.sets || 3 }, (_, i) => ({
+      set_number: i + 1,
+      reps: typeof exercise.reps === 'number' ? exercise.reps : null,
+      weight_kg: null,
+      rest_seconds: exercise.rest_time_seconds || null,
+      notes: null,
+    }))
+    setLogEntries(entries)
+    setLogModal({ workoutId, exerciseIdx, exercise })
+    setSavedIndicator(false)
+  }
+
+  const closeLogModal = () => {
+    setLogModal(null)
+    setLogEntries([])
+    setSavedIndicator(false)
+  }
+
+  const updateLogField = (idx: number, field: keyof LocalSetEntry, value: string) => {
+    setLogEntries(prev => {
+      const next = [...prev]
+      const entry = { ...next[idx] }
+      if (field === 'notes') {
+        entry.notes = value || null
+      } else {
+        const num = value === '' ? null : Number(value)
+        ;(entry as any)[field] = num !== null && isNaN(num) ? null : num
+      }
+      next[idx] = entry
+      return next
+    })
+  }
+
+  const addLogSet = () => {
+    setLogEntries(prev => [...prev, {
+      set_number: prev.length + 1,
+      reps: null, weight_kg: null, rest_seconds: null, notes: null
+    }])
+  }
+
+  const removeLogSet = (idx: number) => {
+    setLogEntries(prev => prev.filter((_, i) => i !== idx).map((s, i) => ({ ...s, set_number: i + 1 })))
+  }
+
+  const saveLog = () => {
+    if (!logModal) return
+    saveLocalLog(token, logModal.workoutId, logModal.exerciseIdx, logEntries)
+    setSavedIndicator(true)
+    setTimeout(() => setSavedIndicator(false), 1500)
+  }
+
+  const hasLocalLog = (workoutId: string, exerciseIdx: number): boolean => {
+    try {
+      return localStorage.getItem(getLogStorageKey(token, workoutId, exerciseIdx)) !== null
+    } catch { return false }
+  }
 
   if (loading) {
     return (
@@ -217,9 +323,18 @@ export default function SharedPlanPage() {
                     >
                       <div className="space-y-2">
                         {exercises.map((ex, idx) => (
-                          <div key={idx} className="rounded-md bg-white/5 p-2">
+                          <div
+                            key={idx}
+                            className="rounded-md bg-white/5 p-2 cursor-pointer hover:bg-white/10 transition-colors active:bg-white/15"
+                            onClick={() => openLogModal(w.id, idx, ex)}
+                          >
                             <div className="flex items-center justify-between mb-1">
-                              <p className="text-[11px] text-white/90 font-medium flex-1 min-w-0 truncate">{ex.name}</p>
+                              <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                                <p className="text-[11px] text-white/90 font-medium truncate">{ex.name}</p>
+                                {hasLocalLog(w.id, idx) && (
+                                  <span className="text-[7px] px-1 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 flex-shrink-0">logged</span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <div className="flex items-center gap-2 text-[9px] text-white/50">
                                   <span>{ex.sets}s</span>
@@ -240,8 +355,27 @@ export default function SharedPlanPage() {
                               ))}
                             </div>
 
-                            {/* Set details if available */}
-                            {ex.set_details && ex.set_details.length > 0 && (
+                            {/* Show saved log summary */}
+                            {(() => {
+                              const saved = loadLocalLog(token, w.id, idx)
+                              if (!saved || saved.length === 0) return null
+                              return (
+                                <div className="mt-1.5 space-y-0.5">
+                                  {saved.map((sd, si) => (
+                                    <div key={si} className="flex items-center gap-2 text-[9px] text-white/50">
+                                      <span className="w-4 text-white/30">#{sd.set_number}</span>
+                                      {sd.reps != null && <span>{sd.reps} reps</span>}
+                                      {sd.weight_kg != null && <span>{sd.weight_kg}kg</span>}
+                                      {sd.rest_seconds != null && <span>{sd.rest_seconds}s</span>}
+                                      {sd.notes && <span className="text-white/40 truncate max-w-[120px]">{sd.notes}</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              )
+                            })()}
+
+                            {/* Set details from server if no local log */}
+                            {!loadLocalLog(token, w.id, idx) && ex.set_details && ex.set_details.length > 0 && (
                               <div className="mt-1.5 space-y-0.5">
                                 {ex.set_details.map((sd, si) => (
                                   <div key={si} className="flex items-center gap-2 text-[9px] text-white/50">
@@ -273,10 +407,154 @@ export default function SharedPlanPage() {
         {/* Footer */}
         <div className="text-center pt-2">
           <p className="text-[10px] text-white/30">
-            Shared workout plan
+            Shared workout plan · Tap exercise to log sets
           </p>
         </div>
       </motion.div>
+
+      {/* Exercise Log Modal */}
+      <AnimatePresence>
+        {logModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+            onClick={closeLogModal}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              onClick={(e) => e.stopPropagation()}
+              className="relative w-full max-w-md rounded-2xl bg-white/5 backdrop-blur-2xl shadow-2xl max-h-[85vh] overflow-hidden"
+            >
+              <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-white/10 blur-3xl opacity-40" />
+              <div className="absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-emerald-500/20 blur-3xl opacity-30" />
+
+              <div className="relative">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between p-4 pb-3">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-white truncate">{logModal.exercise.name}</h3>
+                    <p className="text-[10px] text-white/50 mt-0.5">
+                      {logModal.exercise.sets} sets · {logModal.exercise.reps} reps · {logModal.exercise.rest_time_seconds}s rest
+                    </p>
+                  </div>
+                  <button onClick={closeLogModal} className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white/90 transition-colors">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                {/* Column Headers */}
+                <div className="px-4 pb-2">
+                  <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto] gap-1.5 items-center px-2">
+                    <div className="w-5"></div>
+                    <div className="text-[8px] font-medium text-white/40 text-center uppercase tracking-wider">Reps</div>
+                    <div className="text-[8px] font-medium text-white/40 text-center uppercase tracking-wider">Kg</div>
+                    <div className="text-[8px] font-medium text-white/40 text-center uppercase tracking-wider">Rest</div>
+                    <div className="text-[8px] font-medium text-white/40 text-center uppercase tracking-wider">Notes</div>
+                    <div className="w-5"></div>
+                  </div>
+                </div>
+
+                {/* Set Rows */}
+                <div className="space-y-1 px-4 pb-3 max-h-[50vh] overflow-y-auto">
+                  {logEntries.map((entry, idx) => (
+                    <div key={idx} className="rounded-lg bg-white/5 p-2">
+                      <div className="grid grid-cols-[auto_1fr_1fr_1fr_1fr_auto] gap-1.5 items-center">
+                        <div className="flex items-center justify-center w-5 h-5 rounded bg-white/10 text-[9px] font-medium text-white/80">
+                          {entry.set_number}
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          value={entry.reps ?? ''}
+                          onChange={(e) => updateLogField(idx, 'reps', e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget.parentElement?.nextElementSibling?.querySelector('input') as HTMLInputElement)?.focus() } }}
+                          placeholder="—"
+                          className="w-full rounded bg-white/10 px-1.5 py-1 text-[10px] text-center text-white placeholder-white/25 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-emerald-400/40 transition-colors"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={entry.weight_kg ?? ''}
+                          onChange={(e) => updateLogField(idx, 'weight_kg', e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget.parentElement?.nextElementSibling?.querySelector('input') as HTMLInputElement)?.focus() } }}
+                          placeholder="—"
+                          className="w-full rounded bg-white/10 px-1.5 py-1 text-[10px] text-center text-white placeholder-white/25 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-emerald-400/40 transition-colors"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          value={entry.rest_seconds ?? ''}
+                          onChange={(e) => updateLogField(idx, 'rest_seconds', e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); (e.currentTarget.parentElement?.nextElementSibling?.querySelector('input') as HTMLInputElement)?.focus() } }}
+                          placeholder="—"
+                          className="w-full rounded bg-white/10 px-1.5 py-1 text-[10px] text-center text-white placeholder-white/25 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-emerald-400/40 transition-colors"
+                        />
+                        <input
+                          type="text"
+                          value={entry.notes ?? ''}
+                          onChange={(e) => updateLogField(idx, 'notes', e.target.value)}
+                          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveLog() } }}
+                          placeholder="—"
+                          className="w-full rounded bg-white/10 px-1.5 py-1 text-[10px] text-white placeholder-white/25 focus:bg-white/15 focus:outline-none focus:ring-1 focus:ring-emerald-400/40 transition-colors"
+                        />
+                        {logEntries.length > 1 && (
+                          <button onClick={() => removeLogSet(idx)} className="p-0.5 rounded hover:bg-red-500/20 text-white/30 hover:text-red-400 transition-colors">
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={addLogSet}
+                    disabled={logEntries.length >= 12}
+                    className="w-full rounded-lg bg-white/5 px-3 py-1.5 text-[10px] text-white/60 hover:bg-white/10 hover:text-white/80 transition-colors disabled:opacity-40 flex items-center justify-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    Add Set ({logEntries.length}/12)
+                  </button>
+                </div>
+
+                {/* Footer Actions */}
+                <div className="flex gap-2 px-4 pb-4 pt-2 border-t border-white/5">
+                  <button
+                    onClick={closeLogModal}
+                    className="rounded-lg bg-white/10 px-3 py-1.5 text-[10px] text-white/70 hover:bg-white/15 transition-colors flex items-center gap-1"
+                  >
+                    <X className="h-3 w-3" />
+                    Close
+                  </button>
+                  <button
+                    onClick={saveLog}
+                    className="flex-1 rounded-lg bg-emerald-500/20 px-3 py-1.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/30 transition-colors flex items-center justify-center gap-1"
+                  >
+                    {savedIndicator ? (
+                      <>
+                        <Check className="h-3 w-3" />
+                        Saved!
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-3 w-3" />
+                        Save
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <p className="text-[8px] text-white/25 text-center pb-3">Saved locally on this device</p>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   )
 }
